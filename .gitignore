@@ -1,0 +1,29 @@
+__pycache__/
+*.pyc
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+
+# Datos (existen localmente, no en git)
+src/ley_ar/data/
+
+# Archivos legacy en raiz (ya migrados a src/)
+descriptor_embeddings.faiss
+descriptor_mappings.json
+hybrid_retriever.py
+semantic_retriever.py
+build_embeddings.py
+__init__.py
+datasets/
+*.pkl
+
+# IDE / OS
+.DS_Store
+.vscode/
+.idea/
+
+# Env
+.env
+venv/
+.venv/

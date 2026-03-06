@@ -2,13 +2,30 @@
 name = "ley-ar"
 version = "0.1.0"
 description = "MCP server de legislacion laboral argentina para agentes de IA"
+readme = "readme.md"
+license = "MIT"
 requires-python = ">=3.10"
+authors = [
+    { name = "Luciano Sanchez", email = "luchoqq@gmail.com" },
+]
+keywords = ["mcp", "legal", "argentina", "laboral", "legislacion"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
 dependencies = [
     "mcp>=1.0.0",
     "python-dateutil>=2.8.0",
     "faiss-cpu>=1.7.0",
     "sentence-transformers>=2.0.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/LuchoQQ/ley-ar_mcp"
+Repository = "https://github.com/LuchoQQ/ley-ar_mcp"
 
 [project.scripts]
 ley-ar = "ley_ar.server:mcp.run"
@@ -19,3 +36,12 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/ley_ar"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"src/ley_ar/data/legislacion" = "ley_ar/data/legislacion"
+"src/ley_ar/data/descriptores" = "ley_ar/data/descriptores"
+"src/ley_ar/services/hybrid_retriever.py" = "ley_ar/services/hybrid_retriever.py"
+
+[tool.hatch.build.targets.sdist]
+include = ["src/ley_ar"]
+exclude = ["src/ley_ar/data"]

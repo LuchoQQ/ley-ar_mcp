@@ -1,5 +1,6 @@
 from mcp.server.fastmcp import FastMCP
 
+from ley_ar.data_manager import ensure_data_ready
 from ley_ar.services.legislation_store import LegislationStore
 from ley_ar.services.hybrid_retriever import HybridRetriever
 from ley_ar.services.juris_search import JurisprudenciaSearch
@@ -8,6 +9,8 @@ from ley_ar.tools.calcular_indem import calcular_indemnizacion as _calcular_inde
 from ley_ar.tools.verificar_prescrip import verificar_prescripcion as _verificar_prescripcion
 from ley_ar.tools.buscar_articulos import buscar_articulos as _buscar_articulos
 from ley_ar.tools.jurisprudencia import jurisprudencia as _jurisprudencia
+
+ensure_data_ready()
 
 legislation_store = LegislationStore()
 hybrid_retriever = HybridRetriever()

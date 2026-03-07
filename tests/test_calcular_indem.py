@@ -10,66 +10,158 @@ def test_despido_menos_1_anio():
     """Antiguedad 8 meses -> 1 periodo (fraccion > 3 meses)"""
     r = calcular_indemnizacion("2024-06-01", "2025-02-15", 1000000, "sin_causa", True, False)
     assert r["antiguedad"]["periodos_indemnizatorios"] == 1
-    assert r["rubros"]["indemnizacion_antiguedad"]["monto"] == 1000000
-    assert r["rubros"]["preaviso"]["monto"] == 1000000  # 1 mes (>= 3 meses, < 5 anos)
+    assert r["rubros_inmediatos"]["indemnizacion_antiguedad"]["monto"] == 1000000
+    assert r["rubros_inmediatos"]["preaviso"]["monto"] == 1000000
 
 
 def test_despido_exacto_5_anios():
     """Antiguedad exacta 5 anos -> 5 periodos, preaviso 2 meses"""
     r = calcular_indemnizacion("2020-01-15", "2025-01-15", 1200000, "sin_causa", True, False)
     assert r["antiguedad"]["periodos_indemnizatorios"] == 5
-    assert r["rubros"]["preaviso"]["monto"] == 2400000  # 2 meses x $1.200.000
+    assert r["rubros_inmediatos"]["preaviso"]["monto"] == 2400000
 
 
 def test_despido_10_anios():
     """Antiguedad 10 anos -> 10 periodos, vacaciones 28 dias"""
     r = calcular_indemnizacion("2015-03-01", "2025-03-01", 900000, "sin_causa", True, False)
     assert r["antiguedad"]["periodos_indemnizatorios"] == 10
-    assert r["rubros"]["indemnizacion_antiguedad"]["monto"] == 9000000
+    assert r["rubros_inmediatos"]["indemnizacion_antiguedad"]["monto"] == 9000000
 
 
 def test_despido_inicio_mes():
     """Despido el dia 3 -> integracion mes grande"""
     r = calcular_indemnizacion("2020-01-01", "2025-01-03", 1000000, "sin_causa", True, False)
-    assert r["rubros"]["integracion_mes"]["monto"] > 0
-    # 28 dias restantes x ($1.000.000 / 30) ~ $933.333
-    assert r["rubros"]["integracion_mes"]["monto"] > 900000
+    assert r["rubros_inmediatos"]["integracion_mes"]["monto"] > 0
+    assert r["rubros_inmediatos"]["integracion_mes"]["monto"] > 900000
 
 
 def test_despido_fin_mes():
     """Despido el dia 31 -> integracion mes = 0"""
     r = calcular_indemnizacion("2020-01-01", "2025-01-31", 1000000, "sin_causa", True, False)
-    assert r["rubros"]["integracion_mes"]["monto"] == 0
+    assert r["rubros_inmediatos"]["integracion_mes"]["monto"] == 0
 
 
-def test_despido_no_registrado():
-    """Relacion no registrada -> multa art. 2 ley 25.323 = 50%"""
+def test_despido_no_registrado_art2_25323():
+    """Relacion no registrada -> multa art. 2 ley 25.323 en apercibimiento"""
     r = calcular_indemnizacion("2022-01-01", "2025-01-15", 800000, "sin_causa", False, False)
-    assert r["rubros"]["multa_ley25323_art2"]["monto"] > 0
-    # Multa = 50% x (antiguedad + preaviso + integracion)
-    antiguedad = r["rubros"]["indemnizacion_antiguedad"]["monto"]
-    preaviso = r["rubros"]["preaviso"]["monto"]
-    integracion = r["rubros"]["integracion_mes"]["monto"]
+    assert r["rubros_apercibimiento"]["multa_ley25323_art2"]["monto"] > 0
+    antiguedad = r["rubros_inmediatos"]["indemnizacion_antiguedad"]["monto"]
+    preaviso = r["rubros_inmediatos"]["preaviso"]["monto"]
+    integracion = r["rubros_inmediatos"]["integracion_mes"]["monto"]
     expected = (antiguedad + preaviso + integracion) * 0.5
-    assert abs(r["rubros"]["multa_ley25323_art2"]["monto"] - expected) < 1
+    assert abs(r["rubros_apercibimiento"]["multa_ley25323_art2"]["monto"] - expected) < 1
+
+
+def test_despido_no_registrado_duplicacion_art1_25323():
+    """No registrado -> duplicacion art. 1 Ley 25.323 (100% del art. 245)"""
+    r = calcular_indemnizacion("2022-01-01", "2025-01-15", 800000, "sin_causa", False, False)
+    antiguedad = r["rubros_inmediatos"]["indemnizacion_antiguedad"]["monto"]
+    duplicacion = r["rubros_inmediatos"]["duplicacion_ley25323_art1"]["monto"]
+    assert duplicacion == antiguedad
+
+
+def test_despido_no_registrado_con_intimacion_art8():
+    """No registrado + intimacion -> multa art. 8 Ley 24.013"""
+    r = calcular_indemnizacion(
+        "2022-01-01", "2025-01-15", 800000, "sin_causa", False, False,
+        fecha_intimacion="2024-12-01",
+    )
+    multa = r["rubros_requiere_intimacion"]["multa_ley24013_art8"]
+    assert multa["monto"] > 0
+    # 25% x 35 meses x $800.000 = $7.000.000
+    meses = 35  # ene 2022 a dic 2024
+    expected = 800000 * meses * 0.25
+    assert abs(multa["monto"] - expected) < 1
+
+
+def test_despido_no_registrado_sin_intimacion_advierte():
+    """No registrado sin intimacion -> monto 0 + accion requerida"""
+    r = calcular_indemnizacion("2022-01-01", "2025-01-15", 800000, "sin_causa", False, False)
+    multa = r["rubros_requiere_intimacion"]["multa_ley24013_art8"]
+    assert multa["monto"] == 0
+    assert "accion_requerida" in multa
+
+
+def test_art15_duplicacion_por_despido_represalia():
+    """Despido dentro de 2 anos de intimacion -> art. 15 duplica multas"""
+    r = calcular_indemnizacion(
+        "2022-01-01", "2025-01-15", 800000, "sin_causa", False, False,
+        fecha_intimacion="2024-12-01",
+    )
+    assert "duplicacion_ley24013_art15" in r["rubros_requiere_intimacion"]
+    art8 = r["rubros_requiere_intimacion"]["multa_ley24013_art8"]["monto"]
+    art15 = r["rubros_requiere_intimacion"]["duplicacion_ley24013_art15"]["monto"]
+    assert art15 == art8
+
+
+def test_registro_parcial_art9():
+    """Remuneracion registrada menor a la real -> multa art. 9"""
+    r = calcular_indemnizacion(
+        "2022-01-01", "2025-01-15", 800000, "sin_causa", True, False,
+        fecha_intimacion="2024-12-01",
+        remuneracion_registrada=400000,
+    )
+    multa = r["rubros_requiere_intimacion"]["multa_ley24013_art9"]
+    assert multa["monto"] > 0
+    # 25% x 35 meses x $400.000 (diferencia) = $3.500.000
+    expected = 400000 * 35 * 0.25
+    assert abs(multa["monto"] - expected) < 1
+
+
+def test_fecha_registro_falsa_art10():
+    """Fecha de ingreso falsa -> multa art. 10"""
+    r = calcular_indemnizacion(
+        "2022-01-01", "2025-01-15", 800000, "sin_causa", True, False,
+        fecha_intimacion="2024-12-01",
+        fecha_registro_falsa="2023-06-01",
+    )
+    multa = r["rubros_requiere_intimacion"]["multa_ley24013_art10"]
+    assert multa["monto"] > 0
+    # 25% x 17 meses x $800.000 = $3.400.000
+    expected = 800000 * 17 * 0.25
+    assert abs(multa["monto"] - expected) < 1
 
 
 def test_con_preaviso_otorgado():
     """Preaviso otorgado -> preaviso = 0, integracion = 0, SAC s/preaviso = 0"""
     r = calcular_indemnizacion("2020-01-01", "2025-06-15", 1000000, "sin_causa", True, True)
-    assert r["rubros"]["preaviso"]["monto"] == 0
-    assert r["rubros"]["integracion_mes"]["monto"] == 0
-    assert r["rubros"]["sac_sobre_preaviso"]["monto"] == 0
+    assert r["rubros_inmediatos"]["preaviso"]["monto"] == 0
+    assert r["rubros_inmediatos"]["integracion_mes"]["monto"] == 0
+    assert r["rubros_inmediatos"]["sac_sobre_preaviso"]["monto"] == 0
 
 
-def test_total_es_suma_de_rubros():
-    """El total debe ser la suma de todos los rubros"""
-    r = calcular_indemnizacion("2021-03-01", "2025-03-01", 1500000, "sin_causa", True, False)
-    suma = sum(rubro["monto"] for rubro in r["rubros"].values())
-    assert abs(r["total"] - suma) < 1
+def test_total_es_suma_de_categorias():
+    """El total general debe ser la suma de las 3 categorias"""
+    r = calcular_indemnizacion(
+        "2022-01-01", "2025-01-15", 800000, "sin_causa", False, False,
+        fecha_intimacion="2024-12-01",
+    )
+    suma_inm = sum(rubro["monto"] for rubro in r["rubros_inmediatos"].values())
+    suma_int = sum(rubro["monto"] for rubro in r["rubros_requiere_intimacion"].values())
+    suma_ape = sum(rubro["monto"] for rubro in r["rubros_apercibimiento"].values())
+    assert abs(r["totales"]["inmediatos"] - suma_inm) < 1
+    assert abs(r["totales"]["requiere_intimacion"] - suma_int) < 1
+    assert abs(r["totales"]["apercibimiento"] - suma_ape) < 1
+    assert abs(r["totales"]["general"] - (suma_inm + suma_int + suma_ape)) < 1
 
 
 def test_periodo_prueba():
     """Antiguedad < 3 meses -> preaviso 15 dias (0.5 mes)"""
     r = calcular_indemnizacion("2025-01-01", "2025-02-15", 1000000, "sin_causa", True, False)
-    assert r["rubros"]["preaviso"]["monto"] == 500000  # 0.5 x $1.000.000
+    assert r["rubros_inmediatos"]["preaviso"]["monto"] == 500000
+
+
+def test_advertencia_intimacion_pendiente():
+    """No registrado sin intimacion -> advertencia sobre telegrama"""
+    r = calcular_indemnizacion("2022-01-01", "2025-01-15", 800000, "sin_causa", False, False)
+    assert any("telegrama" in a.lower() or "art. 11" in a.lower() for a in r["advertencias"])
+
+
+def test_preaviso_nota_cerca_umbral_5_anios():
+    """4 anios 10 meses -> 5 periodos art 245 pero preaviso 1 mes, con nota explicativa"""
+    r = calcular_indemnizacion("2020-04-01", "2025-02-15", 1000000, "sin_causa", True, False)
+    assert r["antiguedad"]["anos"] == 4
+    assert r["antiguedad"]["periodos_indemnizatorios"] == 5
+    assert r["rubros_inmediatos"]["preaviso"]["monto"] == 1000000  # 1 mes, no 2
+    assert "nota" in r["rubros_inmediatos"]["preaviso"]
+    assert "art. 231" in r["rubros_inmediatos"]["preaviso"]["nota"].lower() or "231" in r["rubros_inmediatos"]["preaviso"]["nota"]

@@ -27,23 +27,22 @@ def norma_vigente(ley: str, articulo: str) -> dict:
     """Recupera el texto exacto de un articulo de legislacion laboral argentina.
 
     Args:
-        ley: Nombre o numero de la ley. Valores: "LCT", "LRT", "24013", "25323", "11544"
-        articulo: Numero del articulo. Ej: "245", "231"
+        ley: Nombre o numero de la ley
+        articulo: Numero del articulo
     """
     return _norma_vigente(legislation_store, ley, articulo)
 
 
 @mcp.tool()
 def buscar_articulos(tema: str, ley: str = None, max_resultados: int = 5) -> dict:
-    """Busqueda hibrida de articulos de legislacion laboral por tema en lenguaje natural.
+    """Busqueda semantica de articulos de legislacion laboral por tema.
 
-    Combina keyword matching (descriptores SAIJ + stemming espanol) con busqueda
-    semantica (embeddings de modelo legal fine-tuned). Devuelve articulos con texto
-    completo, capitulo y relevancia.
+    Usa descriptores tematicos y embeddings. Funciona con descripciones
+    conceptuales del caso, no con citas legales especificas.
 
     Args:
-        tema: Descripcion del tema en lenguaje natural. Ej: "despido durante embarazo", "horas extras"
-        ley: Filtro opcional por ley. Valores: "LCT", "LRT", "LdE", "LJT"
+        tema: Descripcion del tema en lenguaje natural
+        ley: Filtro opcional por ley
         max_resultados: Cantidad maxima de articulos a devolver. Default: 5
     """
     return _buscar_articulos(hybrid_retriever, legislation_store, tema, ley, max_resultados)
@@ -51,14 +50,14 @@ def buscar_articulos(tema: str, ley: str = None, max_resultados: int = 5) -> dic
 
 @mcp.tool()
 def jurisprudencia(caso: str, jurisdiccion: str = None, max_resultados: int = 3) -> dict:
-    """Busca jurisprudencia laboral relevante a un caso descrito en lenguaje natural.
+    """Busca jurisprudencia laboral relevante a un caso.
 
-    Extrae descriptores del caso y busca fallos con mayor overlap de descriptores.
-    100% local, sin API externa.
+    Usa descriptores tematicos. Funciona mejor con descripciones del caso
+    que con citas legales especificas.
 
     Args:
         caso: Descripcion del caso en lenguaje natural
-        jurisdiccion: Filtro opcional por provincia. Ej: "Buenos Aires", "CABA"
+        jurisdiccion: Filtro opcional por provincia
         max_resultados: Cantidad maxima de fallos a devolver. Default: 3
     """
     return _jurisprudencia(hybrid_retriever, juris_search, caso, jurisdiccion, max_resultados)
@@ -72,11 +71,15 @@ def calcular_indemnizacion(
     causa: str = "sin_causa",
     registrado: bool = True,
     preaviso_otorgado: bool = False,
+    fecha_intimacion: str = None,
+    remuneracion_registrada: float = None,
+    fecha_registro_falsa: str = None,
 ) -> dict:
-    """Calcula todos los rubros indemnizatorios de un despido laboral argentino.
+    """Calcula rubros indemnizatorios de un despido laboral argentino.
 
-    100% deterministico. Aplica las formulas exactas de la LCT.
-    No usa IA. Cada monto es trazable a un articulo y una formula.
+    Deterministico. Cada monto es trazable a un articulo y una formula.
+    Los rubros se clasifican en: inmediatos, requiere_intimacion y apercibimiento
+    segun su exigibilidad procesal.
 
     Args:
         fecha_ingreso: Fecha de inicio de la relacion laboral (YYYY-MM-DD)
@@ -85,9 +88,13 @@ def calcular_indemnizacion(
         causa: Tipo de despido: "sin_causa", "con_causa", "indirecto"
         registrado: Si la relacion laboral estaba registrada
         preaviso_otorgado: Si el empleador otorgo preaviso
+        fecha_intimacion: Fecha del telegrama intimando registro (YYYY-MM-DD). Omitir si no se envio.
+        remuneracion_registrada: Remuneracion en recibos si habia registro parcial. Omitir si no aplica.
+        fecha_registro_falsa: Fecha de ingreso registrada si era distinta a la real (YYYY-MM-DD). Omitir si no aplica.
     """
     return _calcular_indemnizacion(
-        fecha_ingreso, fecha_egreso, mejor_remuneracion, causa, registrado, preaviso_otorgado
+        fecha_ingreso, fecha_egreso, mejor_remuneracion, causa, registrado, preaviso_otorgado,
+        fecha_intimacion, remuneracion_registrada, fecha_registro_falsa,
     )
 
 

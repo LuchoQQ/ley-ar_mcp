@@ -5,6 +5,8 @@ dist/
 build/
 .pytest_cache/
 
+CLAUDE.md
+
 # Datos (existen localmente, no en git)
 src/ley_ar/data/
 

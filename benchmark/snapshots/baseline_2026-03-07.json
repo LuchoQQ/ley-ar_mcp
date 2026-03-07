@@ -1,0 +1,288 @@
+Loading services...
+Ready.
+
+{
+  "articulos": [
+    {
+      "id": "despido_sin_causa_basico",
+      "passed": false,
+      "recall": 0.6666666666666666,
+      "any_of_hit": true,
+      "expected_misses": [
+        "LCT_233"
+      ],
+      "found_ids": [
+        "LCT_245",
+        "LCT_243",
+        "LCT_242",
+        "LEY-25323_2",
+        "LCT_247",
+        "LCT_232",
+        "LCT_10"
+      ],
+      "descriptors_matched": 8,
+      "time_ms": 200
+    },
+    {
+      "id": "despido_embarazo",
+      "passed": false,
+      "recall": 0.5,
+      "any_of_hit": false,
+      "expected_misses": [
+        "LCT_182"
+      ],
+      "found_ids": [
+        "LCT_245",
+        "LCT_243",
+        "LCT_242",
+        "LCT_247",
+        "LCT_178",
+        "LCT_244",
+        "LCT_30"
+      ],
+      "descriptors_matched": 7,
+      "time_ms": 103
+    },
+    {
+      "id": "trabajo_no_registrado",
+      "passed": true,
+      "recall": 1.0,
+      "any_of_hit": true,
+      "expected_misses": [],
+      "found_ids": [
+        "LdE_11",
+        "LdE_8",
+        "LdE_15",
+        "LEY-25323_1",
+        "LdE_10",
+        "LdE_9",
+        "LCT_242"
+      ],
+      "descriptors_matched": 6,
+      "time_ms": 81
+    },
+    {
+      "id": "preaviso",
+      "passed": false,
+      "recall": 0.0,
+      "any_of_hit": false,
+      "expected_misses": [
+        "LCT_231",
+        "LCT_232"
+      ],
+      "found_ids": [
+        "LCT_30",
+        "LCT_23",
+        "LCT_245",
+        "LCT_80",
+        "LCT_241"
+      ],
+      "descriptors_matched": 8,
+      "time_ms": 186
+    },
+    {
+      "id": "jornada_trabajo",
+      "passed": true,
+      "recall": 1.0,
+      "any_of_hit": true,
+      "expected_misses": [],
+      "found_ids": [
+        "LJT_3",
+        "LCT_92",
+        "LCT_52",
+        "LCT_198",
+        "LCT_9"
+      ],
+      "descriptors_matched": 7,
+      "time_ms": 147
+    },
+    {
+      "id": "accidente_trabajo",
+      "passed": true,
+      "recall": 1.0,
+      "any_of_hit": true,
+      "expected_misses": [],
+      "found_ids": [
+        "LCT_212",
+        "LRT_39",
+        "LCT_75",
+        "LRT_46",
+        "LRT_14",
+        "LRT_6",
+        "LRT_49"
+      ],
+      "descriptors_matched": 7,
+      "time_ms": 98
+    },
+    {
+      "id": "periodo_prueba",
+      "passed": false,
+      "recall": 0.0,
+      "any_of_hit": true,
+      "expected_misses": [
+        "LCT_92"
+      ],
+      "found_ids": [
+        "LCT_30",
+        "LCT_23",
+        "LCT_245",
+        "LCT_80",
+        "LCT_241"
+      ],
+      "descriptors_matched": 8,
+      "time_ms": 102
+    },
+    {
+      "id": "vacaciones",
+      "passed": false,
+      "recall": 0.0,
+      "any_of_hit": true,
+      "expected_misses": [
+        "LCT_150"
+      ],
+      "found_ids": [
+        "LCT_156",
+        "LCT_162",
+        "LCT_155",
+        "LCT_154",
+        "LCT_157"
+      ],
+      "descriptors_matched": 8,
+      "time_ms": 106
+    },
+    {
+      "id": "despido_causa",
+      "passed": true,
+      "recall": 1.0,
+      "any_of_hit": true,
+      "expected_misses": [],
+      "found_ids": [
+        "LCT_242",
+        "LCT_244",
+        "LCT_243",
+        "LCT_62",
+        "LCT_10"
+      ],
+      "descriptors_matched": 8,
+      "time_ms": 80
+    },
+    {
+      "id": "remuneracion",
+      "passed": false,
+      "recall": 1.0,
+      "any_of_hit": false,
+      "expected_misses": [],
+      "found_ids": [
+        "LCT_103",
+        "LCT_245",
+        "LCT_138",
+        "LCT_208",
+        "LCT_55"
+      ],
+      "descriptors_matched": 5,
+      "time_ms": 97
+    },
+    {
+      "id": "despido_discriminatorio",
+      "passed": false,
+      "recall": 1.0,
+      "any_of_hit": false,
+      "expected_misses": [],
+      "found_ids": [
+        "LCT_245",
+        "LCT_243",
+        "LCT_242",
+        "LCT_247",
+        "LCT_244",
+        "LCT_30",
+        "LCT_63"
+      ],
+      "descriptors_matched": 6,
+      "time_ms": 78
+    },
+    {
+      "id": "sac_aguinaldo",
+      "passed": false,
+      "recall": 0.0,
+      "any_of_hit": true,
+      "expected_misses": [
+        "LCT_121",
+        "LCT_122"
+      ],
+      "found_ids": [
+        "LCT_245",
+        "LEY-25323_1",
+        "LCT_123",
+        "LCT_103",
+        "LCT_156"
+      ],
+      "descriptors_matched": 2,
+      "time_ms": 79
+    }
+  ],
+  "jurisprudencia": [
+    {
+      "id": "juris_despido_no_registrado",
+      "passed": true,
+      "n_found": 5,
+      "min_required": 2,
+      "min_ok": true,
+      "overlap_ok": true,
+      "overlap_found": [
+        "empleo no registrado"
+      ],
+      "avg_year": 2024,
+      "time_ms": 105
+    },
+    {
+      "id": "juris_despido_embarazo",
+      "passed": true,
+      "n_found": 5,
+      "min_required": 1,
+      "min_ok": true,
+      "overlap_ok": true,
+      "overlap_found": [],
+      "avg_year": 2024,
+      "time_ms": 101
+    },
+    {
+      "id": "juris_accidente",
+      "passed": true,
+      "n_found": 5,
+      "min_required": 1,
+      "min_ok": true,
+      "overlap_ok": true,
+      "overlap_found": [],
+      "avg_year": 2023,
+      "time_ms": 108
+    },
+    {
+      "id": "juris_despido_basico",
+      "passed": false,
+      "n_found": 5,
+      "min_required": 2,
+      "min_ok": true,
+      "overlap_ok": false,
+      "overlap_found": [],
+      "avg_year": 2020,
+      "time_ms": 105
+    },
+    {
+      "id": "juris_horas_extras",
+      "passed": true,
+      "n_found": 5,
+      "min_required": 1,
+      "min_ok": true,
+      "overlap_ok": true,
+      "overlap_found": [],
+      "avg_year": 2022,
+      "time_ms": 94
+    }
+  ],
+  "summary": {
+    "articulos_passed": 4,
+    "articulos_total": 12,
+    "juris_passed": 4,
+    "juris_total": 5
+  }
+}

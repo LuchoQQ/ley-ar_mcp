@@ -30,22 +30,22 @@ class JurisprudenciaSearch:
         return "laboral" in materia.lower()
 
     def _recency_boost(self, fecha: str) -> float:
-        """Boost por recencia: fallos recientes rankean mas alto."""
+        """Boost por recencia: fallos recientes rankean significativamente mas alto."""
         if not fecha or len(fecha) < 4:
-            return 0.5
+            return 0.3
         try:
             year = int(fecha[:4])
         except ValueError:
-            return 0.5
+            return 0.3
         if year >= 2020:
-            return 1.5
+            return 2.0
         if year >= 2015:
-            return 1.2
+            return 1.5
         if year >= 2010:
             return 1.0
-        if year >= 2000:
-            return 0.8
-        return 0.5
+        if year >= 2005:
+            return 0.6
+        return 0.3
 
     def _load(self, path: Path):
         with open(path, "r") as f:
@@ -99,7 +99,7 @@ class JurisprudenciaSearch:
         self,
         descriptor_scores: List[Tuple[str, float]],
         top_k: int = 5,
-        min_overlap: int = 2,
+        min_overlap: int = 1,
         jurisdiccion: str = None,
     ) -> List[Dict]:
         score_map = {}
@@ -147,7 +147,7 @@ class JurisprudenciaSearch:
                 "numero_sumario": record["numero_sumario"],
                 "titulo": record["titulo"],
                 "caratula": record["caratula"],
-                "sumario": record["sumario"][:500],
+                "sumario": record["sumario"][:1500],
                 "fecha": record["fecha"],
                 "provincia": record["provincia"],
                 "descriptors_overlap": sorted(matching_descs),

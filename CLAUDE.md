@@ -1,186 +1,211 @@
-# CLAUDE.md — Estado actual del proyecto
+# CLAUDE.md
 
-## Contexto
+## Que es este proyecto
 
-Dos proyectos que forman un ecosistema:
+MCP server de legislacion laboral argentina. Expone 7 tools que cualquier LLM compatible con Model Context Protocol puede usar para buscar articulos, calcular indemnizaciones, consultar jurisprudencia, analizar casos estadisticamente, verificar prescripciones y generar documentos legales.
 
-1. **ley-ar** (`mcp/`) — MCP Server de legislación laboral argentina. Infraestructura open source en Python.
-2. **webapp** (`webapp/`) — Agente conversacional que consume ley-ar como librería directa. Frontend React + backend FastAPI + Claude Sonnet.
-
-Deadline: mayo 2026 (Puentes by Antigravity Capital, Cohorte #3).
+Publicado en PyPI como `ley-ar`. Se instala con `uvx ley-ar` o `pip install ley-ar`.
 
 ---
 
-## Arquitectura actual
+## Como correr
 
-```
-webapp/frontend (React + Vite)
-    │
-    POST /api/chat/stream  { session_id, message }
-    │
-webapp/backend
-    ├── server.py          FastAPI, sesiones en memoria, SSE streaming
-    └── agent.py           Agentic loop con Claude Sonnet + tool use
-            │
-            │  importa ley-ar como librería Python directa (no MCP protocol)
-            │  sys.path.insert → mcp/src/ley_ar/
-            │
-            ├── Claude API (anthropic SDK)
-            │     model: claude-sonnet-4-20250514
-            │     system prompt + 5 tool definitions
-            │     agentic loop: llama tools hasta stop_reason != "tool_use"
-            │
-            └── ley-ar tools (ejecución local, sin red)
-                  ├── buscar_articulos    → HybridRetriever + LegislationStore
-                  ├── jurisprudencia      → HybridRetriever + JurisprudenciaSearch
-                  ├── calcular_indemnizacion  → determinístico, sin IA
-                  ├── verificar_prescripcion  → determinístico, sin IA
-                  └── norma_vigente           → lookup directo LegislationStore
+```bash
+# Instalar en modo desarrollo
+pip install -e .
+
+# Correr el server MCP
+ley-ar
+
+# Tests
+pytest tests/ -v
 ```
 
-El MCP server (`server.py` con FastMCP) también existe y funciona, pero la webapp lo consume como librería directa, no vía MCP protocol.
+Los datos pesados (embeddings FAISS + jurisprudencia JSONL) se descargan automaticamente al primer uso desde GitHub Releases.
 
 ---
 
-## Estructura de archivos
+## Estructura del codigo
 
 ```
-mcp/
-├── src/ley_ar/
-│   ├── server.py              # MCP server (FastMCP). Entry point: ley-ar CLI
-│   ├── data_manager.py        # Descarga automática de archivos pesados desde GitHub Releases
-│   ├── __main__.py
-│   ├── tools/
-│   │   ├── buscar_articulos.py    # Búsqueda semántica de artículos por tema
-│   │   ├── jurisprudencia.py      # Búsqueda de fallos por overlap de descriptores
-│   │   ├── calcular_indem.py      # Cálculo determinístico de indemnización
-│   │   ├── verificar_prescrip.py  # Verificación de prescripción
-│   │   └── norma_vigente.py       # Lookup de texto de artículo por ley+número
-│   ├── services/
-│   │   ├── hybrid_retriever.py    # Keyword matching + FAISS semántico + merge
-│   │   ├── legislation_store.py   # Carga JSONs de legislación, lookup por ID
-│   │   └── juris_search.py        # Búsqueda de fallos en JSONL por descriptores
-│   └── data/
-│       ├── legislacion/           # JSONs: LCT, LRT, Ley de Empleo, LJT, Ley 25.323
-│       ├── descriptores/          # descriptor_index.json (955 descriptores, 5490 sinónimos)
-│       ├── embeddings/            # FAISS index + mappings (se descarga al primer uso)
-│       └── jurisprudencia/        # JSONL con fallos taggeados (se descarga al primer uso)
-├── tests/
-│   ├── test_calcular_indem.py     # 17 tests
-│   ├── test_buscar_articulos.py
-│   ├── test_jurisprudencia.py
-│   ├── test_norma_vigente.py
-│   └── test_verificar_prescrip.py
-└── pyproject.toml
-
-webapp/
-├── backend/
-│   ├── server.py              # FastAPI, endpoints /api/chat y /api/chat/stream
-│   └── agent.py               # System prompt + tool definitions + agentic loop
-└── frontend/
-    └── src/App.tsx             # React chat UI
+src/ley_ar/
+├── server.py              # Entry point. Inicializa servicios y registra tools con FastMCP
+├── data_manager.py        # Descarga automatica de datos pesados desde GitHub Releases
+├── tools/                 # Capa de tools MCP (interfaz publica)
+│   ├── norma_vigente.py
+│   ├── buscar_articulos.py
+│   ├── jurisprudencia.py
+│   ├── calcular_indem.py
+│   ├── verificar_prescrip.py
+│   ├── analizar_caso.py
+│   └── generar_documento.py
+├── services/              # Logica de negocio y acceso a datos
+│   ├── legislation_store.py       # Indice en memoria de articulos de leyes
+│   ├── hybrid_retriever.py        # Busqueda keyword + semantica + merge
+│   ├── juris_search.py            # Busqueda de fallos por overlap de descriptores
+│   ├── case_analytics.py          # Analisis estadistico de jurisprudencia
+│   ├── outcome_extractor.py       # Extraccion de resultado de fallos (regex)
+│   ├── document_generator.py      # Generacion de documentos desde templates
+│   ├── modificaciones_service.py  # Historial de modificaciones legislativas
+│   ├── intereses.py               # Calculo de intereses (tasa activa BNA)
+│   └── temporal_store.py          # Versionado temporal de datos
+└── data/
+    ├── legislacion/       # JSONs de leyes (incluido en el paquete)
+    ├── descriptores/      # descriptor_index.json (incluido en el paquete)
+    ├── embeddings/        # FAISS index + mappings (descarga automatica)
+    ├── jurisprudencia/    # JSONL de fallos (descarga automatica)
+    ├── templates/         # Templates de documentos legales
+    ├── cct/               # Topes por convenio colectivo
+    └── modificaciones.json
 ```
 
 ---
 
-## Tools de ley-ar — qué hace cada una
+## Patron de arquitectura: tools → services → data
 
-### buscar_articulos
-- Input: tema (lenguaje natural), ley (filtro opcional), max_resultados
-- Proceso: HybridRetriever ejecuta keyword matching (stemming español + descriptores SAIJ) y búsqueda semántica (FAISS con modelo `dariolopez/bge-m3-es-legal-tmp-6`) en paralelo, mergea con `max(keyword, semantic)` por descriptor, pondera por rama SAIJ. LegislationStore enriquece con texto completo.
-- Output: artículos con ley, número, título, texto, capítulo, score
+El proyecto sigue una separacion estricta en 3 capas:
 
-### jurisprudencia
-- Input: caso (lenguaje natural), jurisdicción (opcional), max_resultados
-- Proceso: HybridRetriever extrae descriptores del caso. JurisprudenciaSearch busca fallos en JSONL por overlap de descriptores, con boost por recencia (2.0x post-2020, 0.3x pre-2005). min_overlap=1.
-- Output: fallos con carátula, sumario (hasta 1500 chars), fecha, provincia, descriptores en común, score
+### 1. Tools (`tools/`)
 
-### calcular_indemnizacion
-- Input: fecha_ingreso, fecha_egreso, mejor_remuneracion, causa, registrado, preaviso_otorgado + opcionales: fecha_intimacion, remuneracion_registrada, fecha_registro_falsa
-- Proceso: 100% determinístico. Calcula rubros según LCT y leyes 24.013 / 25.323.
-- Output clasificado en 3 categorías:
-  - `rubros_inmediatos`: art. 245, preaviso, integración mes, SAC, vacaciones, SAC s/preaviso, duplicación art. 1 Ley 25.323
-  - `rubros_requiere_intimacion`: arts. 8, 9, 10, 15 Ley 24.013 (solo si se informó fecha_intimacion; si no, devuelve monto 0 + accion_requerida)
-  - `rubros_apercibimiento`: art. 2 Ley 25.323 (nota: no es exigible directo, solo como apercibimiento)
-- Incluye nota especial cuando antigüedad está cerca del umbral de 5 años (diferencia entre períodos art. 245 y tiempo calendario art. 231)
-- Advertencias automáticas: tope CCT no aplicado, intereses no incluidos, telegrama pendiente si aplica
+Funciones puras que reciben servicios ya inicializados por inyeccion de dependencias. Cada tool:
+- Recibe los services que necesita como parametros (no importa ni instancia nada)
+- Valida inputs
+- Orquesta llamadas a services
+- Formatea el output como dict
 
-### verificar_prescripcion
-- Input: tipo_reclamo (despido/diferencias_salariales/accidente/multas_registro), fecha_hecho
-- Proceso: determinístico, plazos de 2 años según art. 256 LCT / art. 44 LRT
-- Output: prescripto (bool), fecha_limite, dias_restantes, fundamento
+Ejemplo: `buscar_articulos(retriever, store, tema, ley, max_resultados, mod_service)`.
 
-### norma_vigente
-- Input: ley, articulo
-- Proceso: lookup directo en LegislationStore
-- Output: texto completo del artículo, título, capítulo
+### 2. Services (`services/`)
+
+Logica de negocio reutilizable. Sin conocimiento de MCP ni del protocolo de comunicacion. Cada service:
+- Se instancia una vez al inicio en `server.py`
+- Mantiene estado en memoria (indices, datos cargados)
+- Expone metodos que las tools consumen
+
+### 3. server.py (composicion)
+
+Unico lugar donde se conectan las piezas:
+1. `ensure_data_ready()` — descarga datos si faltan
+2. Instancia los 4 services compartidos: `LegislationStore`, `HybridRetriever`, `JurisprudenciaSearch`, `ModificacionesService`
+3. Registra cada tool con `@mcp.tool()`, inyectando los services en el closure
+
+**No hay estado global ni singletons.** Todo se inyecta explicitamente.
 
 ---
 
-## Agente conversacional (webapp/backend/agent.py)
+## Como agregar una nueva tool
 
-### System prompt
-El prompt define 3 fases sin hardcodear casos específicos:
-1. **Recopilación**: recopilar datos del caso conversando. Los parámetros opcionales de calcular_indemnizacion guían qué preguntar.
-2. **Análisis**: llamar herramientas relevantes. buscar_articulos y jurisprudencia funcionan con descriptores temáticos, no citas legales.
-3. **Respuesta**: presentar resultados respetando la clasificación de rubros de la herramienta. Generar documentos según la situación procesal. Emisor = trabajador en primera persona.
+1. **Crear el service** en `services/` si necesitas logica nueva. El service no debe importar nada de `tools/` ni de `mcp`.
 
-### Agentic loop
-- Modelo: claude-sonnet-4-20250514
-- Loop: envía messages → si stop_reason == "tool_use" → ejecuta tools → agrega al historial → repite
-- Streaming: SSE con eventos tool_start, tool_result, text_delta, done
-- Sesiones: dict en memoria (session_id → messages)
+2. **Crear la tool** en `tools/nuevo_tool.py`:
+   ```python
+   def mi_nueva_tool(service_1, service_2, param_a: str, param_b: int = 5) -> dict:
+       # Logica de orquestacion
+       resultado = service_1.algo(param_a)
+       return {"data": resultado}
+   ```
 
-### Tool definitions
-Las 5 tools están definidas como JSON schema en agent.py. Descripciones genéricas sin ejemplos hardcodeados. El modelo razona qué preguntar y cómo formular queries basándose en su conocimiento legal + las descriptions de las tools.
+3. **Registrarla** en `server.py`:
+   ```python
+   from ley_ar.tools.nuevo_tool import mi_nueva_tool as _mi_nueva_tool
+
+   @mcp.tool()
+   def mi_nueva_tool(param_a: str, param_b: int = 5) -> dict:
+       """Descripcion clara para el LLM. Sin jerga tecnica.
+
+       Args:
+           param_a: Que significa este parametro
+           param_b: Que significa este. Default: 5
+       """
+       return _mi_nueva_tool(service_1, service_2, param_a, param_b)
+   ```
+
+4. **Agregar tests** en `tests/test_nuevo_tool.py`.
+
+### Principios para tool descriptions
+
+Las descriptions son lo que el LLM lee para decidir cuando y como usar la tool. Son criticas:
+
+- Escribir en lenguaje natural, no tecnico. El LLM no necesita saber que usas FAISS.
+- Describir QUE hace, no COMO lo hace internamente.
+- Especificar que tipo de input funciona mejor (ej: "descripciones conceptuales, no citas legales").
+- Si un parametro es opcional, explicar cuando tiene sentido usarlo.
+- No incluir ejemplos hardcodeados de casos legales en la description.
+
+---
+
+## Sistema de busqueda (HybridRetriever)
+
+El componente mas complejo. Combina dos estrategias:
+
+**Keyword matching**: stemming en espanol + 955 descriptores SAIJ con 5490 sinonimos. Score por overlap de palabras.
+
+**Busqueda semantica**: modelo `dariolopez/bge-m3-es-legal-tmp-6` + indice FAISS precalculado sobre descriptores. Cosine similarity con umbral 0.55.
+
+**Merge**: `score_final = max(keyword, semantico)` por descriptor. Luego ponderacion por jerarquia SAIJ (ramas tematicas) para que queries multi-concepto no colapsen a un solo tema.
+
+**De descriptores a articulos**: cada descriptor en `descriptor_index.json` tiene articulos asociados con cantidad de citas en jurisprudencia. Score de articulo = suma ponderada de citas * score_descriptor * especificidad.
+
+Si necesitas ajustar thresholds o pesos, estan en `hybrid_retriever.py`. Usa el benchmark para medir impacto:
+
+```bash
+python3 benchmark/run.py --json > benchmark/snapshots/before.json
+# hacer cambios
+python3 benchmark/run.py --json > benchmark/snapshots/after.json
+python3 benchmark/compare.py benchmark/snapshots/before.json benchmark/snapshots/after.json
+```
 
 ---
 
 ## Datos
 
-| Dataset | Tamaño | Distribución |
-|---------|--------|--------------|
-| Legislación (JSONs) | ~5 leyes | Incluido en el paquete |
-| Descriptores SAIJ | 955 descriptores, 5490 sinónimos | Incluido en el paquete |
-| Embeddings FAISS | ~50MB | GitHub Releases (descarga al primer uso) |
-| Jurisprudencia JSONL | ~100MB | GitHub Releases (descarga al primer uso) |
+| Dataset | Tamanio | Distribucion | Ubicacion |
+|---------|---------|--------------|-----------|
+| Legislacion (7 JSONs) | ~670 KB | En el paquete PyPI | `data/legislacion/` |
+| Descriptores SAIJ | ~1 MB | En el paquete PyPI | `data/descriptores/` |
+| Embeddings FAISS | ~22 MB | GitHub Releases (auto) | `data/embeddings/` |
+| Jurisprudencia JSONL | ~194 MB | GitHub Releases (auto) | `data/jurisprudencia/` |
 
-`data_manager.py` descarga automáticamente los archivos pesados desde `github.com/LuchoQQ/ley-ar_mcp/releases/v0.1.0-data` al primer uso.
+`data_manager.py` descarga los datos pesados desde `github.com/LuchoQQ/ley-ar_mcp/releases/v0.1.0-data` la primera vez que se inicia el server. Usa `urllib` (sin dependencias extra).
+
+### Para actualizar datos
+
+- **Legislacion**: editar los JSONs en `data/legislacion/`. `LegislationStore` los carga automaticamente.
+- **Descriptores**: editar `data/descriptores/descriptor_index.json`. Recalcular embeddings FAISS si se agregan descriptores nuevos.
+- **Jurisprudencia**: reemplazar el JSONL y subir nuevo zip a GitHub Releases.
+- **Embeddings**: regenerar con el modelo `bge-m3-es-legal` y subir nuevo zip.
 
 ---
 
 ## Limitaciones conocidas
 
-- **Tope CCT no aplicado**: art. 245 LCT tiene un tope por convenio colectivo que no se calcula (requiere datos de CCT por actividad)
-- **Intereses no incluidos**: el cálculo no suma intereses (tasa activa BNA desde fecha de egreso)
-- **Cobertura de descriptores**: búsquedas muy específicas (nombres de leyes, números de artículos) no matchean bien porque los descriptores SAIJ son temáticos
-- **Jurisprudencia**: el dataset tiene fallos desde ~2000 hasta 2025, con boost por recencia. Fallos muy viejos pueden aparecer si tienen alto overlap de descriptores.
+- **Tope CCT**: art. 245 LCT tiene tope por convenio colectivo. El codigo carga datos de CCT pero no todos los convenios estan cubiertos.
+- **Intereses**: el service `intereses.py` existe pero ninguna tool lo expone directamente.
+- **Cobertura geografica**: jurisprudencia prioriza CABA y Buenos Aires.
+- **Busqueda por numero de articulo**: los descriptores SAIJ son tematicos. Buscar "art. 245" no funciona bien; para eso usar `norma_vigente`.
+- **Datos estaticos**: la legislacion se actualiza manualmente por release.
 
 ---
 
-## Cómo correr
+## Tests
 
-### MCP server (standalone)
 ```bash
-pip install -e .
-ley-ar
-# o: uvx ley-ar (cuando esté en PyPI)
+pytest tests/ -v
 ```
 
-### Webapp
-```bash
-# Backend
-cd webapp/backend
-pip install -r requirements.txt  # anthropic, fastapi, uvicorn, python-dotenv
-python server.py                 # puerto 8000
+Los tests estan organizados por tool. Cada archivo testea una tool con sus edge cases.
 
-# Frontend
-cd webapp/frontend
-npm install && npm run dev       # puerto 5173
+Para tests que requieren datos pesados (embeddings, jurisprudencia), asegurate de haber corrido el server al menos una vez para que se descarguen.
+
+---
+
+## Dependencias
+
+```
+mcp>=1.0.0              # Framework MCP
+python-dateutil>=2.8.0  # Parsing de fechas
+faiss-cpu>=1.7.0        # Indice de vectores
+sentence-transformers   # Modelo de embeddings
 ```
 
-### Tests
-```bash
-cd mcp
-python3 -m pytest tests/ -v
-```
+El paquete se construye con `hatchling`. Entry point: `ley-ar = "ley_ar.server:mcp.run"`.

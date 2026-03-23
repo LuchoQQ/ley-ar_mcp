@@ -6,9 +6,12 @@ encuentra los fallos mas relevantes del dataset.
 from __future__ import annotations
 
 import json
+import math
 import re
 from pathlib import Path
 from typing import Dict, List, Tuple
+
+from ley_ar.services.outcome_extractor import classify_court_level
 
 DATA_DIR = Path(__file__).parent.parent / "data"
 DATASET_PATH = DATA_DIR / "jurisprudencia" / "jurisprudencia_laboral.jsonl"
@@ -79,14 +82,20 @@ class JurisprudenciaSearch:
                 sumario = record.get("sumario", "")
                 sumario = re.sub(r'\[\[/?[^\]]*\]\]', '', sumario).strip()
 
+                texto = record.get("texto", "")
+                texto = re.sub(r'\[\[/?[^\]]*\]\]', '', texto).strip()
+
                 self.records.append({
                     "idx": i,
                     "numero_sumario": str(record.get("numero-sumario", "")),
                     "titulo": str(record.get("titulo", "")),
                     "caratula": str(record.get("caratula", "")),
                     "sumario": sumario,
+                    "texto": texto,
                     "fecha": record.get("fecha", ""),
                     "provincia": record.get("provincia", ""),
+                    "instancia": record.get("instancia", ""),
+                    "tipo_tribunal": record.get("tipo-tribunal", ""),
                     "elegidos": elegidos,
                 })
 
@@ -109,10 +118,14 @@ class JurisprudenciaSearch:
 
         # Expandir con equivalentes jerarquicos
         expanded_map = dict(score_map)
+        equivalence_groups: Dict[str, set] = {}
         for desc, score in score_map.items():
             for path, elegidos in self.path_to_elegidos.items():
                 if desc in elegidos:
                     for equiv in elegidos:
+                        if equiv not in equivalence_groups:
+                            equivalence_groups[equiv] = set()
+                        equivalence_groups[equiv].update(elegidos & set(score_map.keys()))
                         if equiv not in expanded_map:
                             expanded_map[equiv] = score
 
@@ -135,21 +148,31 @@ class JurisprudenciaSearch:
                 if elegido in expanded_map:
                     desc_score = expanded_map[elegido]
                     matching_descs.append(elegido)
-                    total_score += desc_score
+                    # Also include equivalent query-side descriptors
+                    if elegido in equivalence_groups:
+                        for equiv in equivalence_groups[elegido]:
+                            if equiv not in matching_descs:
+                                matching_descs.append(equiv)
+                    n_fallos = len(self.descriptor_index.get(elegido, []))
+                    specificity = 1.0 / math.log(2 + n_fallos)
+                    total_score += desc_score * specificity
 
             if len(matching_descs) < min_overlap:
                 continue
 
             boost = self._recency_boost(record["fecha"])
-            final_score = total_score * boost
+            nivel_tribunal, court_boost = classify_court_level(record)
+            final_score = total_score * boost * court_boost
 
             scored.append({
                 "numero_sumario": record["numero_sumario"],
                 "titulo": record["titulo"],
                 "caratula": record["caratula"],
                 "sumario": record["sumario"][:1500],
+                "texto": record["texto"][:2000],
                 "fecha": record["fecha"],
                 "provincia": record["provincia"],
+                "nivel_tribunal": nivel_tribunal,
                 "descriptors_overlap": sorted(matching_descs),
                 "overlap_count": len(matching_descs),
                 "relevance_score": round(final_score, 2),

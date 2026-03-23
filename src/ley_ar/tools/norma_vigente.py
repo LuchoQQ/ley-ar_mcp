@@ -3,7 +3,7 @@ from __future__ import annotations
 from ley_ar.services.legislation_store import LegislationStore
 
 
-def norma_vigente(store: LegislationStore, ley: str, articulo: str) -> dict:
+def norma_vigente(store: LegislationStore, ley: str, articulo: str, mod_service=None) -> dict:
     """Recupera el texto exacto de un articulo de legislacion laboral argentina.
 
     Args:
@@ -14,10 +14,15 @@ def norma_vigente(store: LegislationStore, ley: str, articulo: str) -> dict:
     if not resultado:
         return {"error": f"No se encontro el articulo {articulo} de la ley {ley}"}
 
-    return {
+    result = {
         "ley": resultado["codigo_nombre"],
         "articulo": str(resultado["numero"]),
         "texto": resultado["contenido"],
         "capitulo": resultado["capitulo"],
         "seccion": resultado["seccion"],
     }
+    if mod_service:
+        mod = mod_service.annotate(resultado["id"])
+        if mod:
+            result["modificaciones"] = mod
+    return result

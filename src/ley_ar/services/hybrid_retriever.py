@@ -6,6 +6,7 @@ para obtener lo mejor de ambos metodos.
 from __future__ import annotations
 
 import json
+import math
 import re
 from collections import Counter
 from pathlib import Path
@@ -21,8 +22,9 @@ FAISS_PATH = DATA_DIR / "embeddings" / "descriptor_embeddings.faiss"
 MAPPINGS_PATH = DATA_DIR / "embeddings" / "descriptor_mappings.json"
 INDEX_PATH = DATA_DIR / "descriptores" / "descriptor_index.json"
 
-MIN_SEMANTIC_SIMILARITY = 0.55
+MIN_SEMANTIC_SIMILARITY = 0.52
 MIN_KEYWORD_SCORE = 0.4
+
 
 # --- Stemming en espanol ---
 
@@ -75,6 +77,14 @@ class HybridRetriever:
                 if sin not in self.vocab or self.index[elegido]["total_fallos"] > self.index.get(self.vocab[sin], {}).get("total_fallos", 0):
                     self.vocab[sin] = elegido
         self.terms_sorted = sorted(self.vocab.keys(), key=len, reverse=True)
+
+        # Article-IDF: penalizar artículos que aparecen en demasiados descriptores
+        self.article_descriptor_count: Dict[str, int] = {}
+        for desc, data in self.index.items():
+            for art in data.get("articulos", []):
+                art_id = art["id"]
+                self.article_descriptor_count[art_id] = self.article_descriptor_count.get(art_id, 0) + 1
+        self.total_descriptors = len(self.index)
 
         # Semantico: modelo + FAISS
         self.model = SentenceTransformer(MODEL_NAME)
@@ -164,7 +174,7 @@ class HybridRetriever:
         base_sim = shared / len(parts_a)
         extra_depth = len(parts_b) - shared
         if extra_depth > 0:
-            base_sim *= 0.5 ** extra_depth
+            base_sim *= 0.75 ** extra_depth
         return base_sim
 
     def _get_branch(self, desc: str) -> str:
@@ -205,6 +215,8 @@ class HybridRetriever:
             data = self.index.get(desc)
             if not data:
                 continue
+            n_articles = len(data["articulos"])
+            specificity = 1.0 / math.log(2 + n_articles)
             for art in data["articulos"]:
                 art_id = art["id"]
                 if art_id not in article_scores:
@@ -215,7 +227,8 @@ class HybridRetriever:
                     }
                 article_scores[art_id]["signals"] += 1
                 article_scores[art_id]["total_citas"] += art["citas"]
-                article_scores[art_id]["weighted_score"] += art["citas"] * desc_score
+                article_idf = math.sqrt(math.log(self.total_descriptors / self.article_descriptor_count.get(art_id, 1)))
+                article_scores[art_id]["weighted_score"] += math.log(1 + art["citas"]) * desc_score * specificity * article_idf
                 article_scores[art_id]["from_descriptors"].append(
                     {"descriptor": desc, "citas": art["citas"], "score": round(desc_score, 2)}
                 )
@@ -225,12 +238,16 @@ class HybridRetriever:
         filtered.sort(key=lambda x: x["weighted_score"], reverse=True)
         return filtered[:top_k]
 
-    def search(self, user_input: str, top_k: int = 10, min_signals: int = 1, max_descriptors: int = 8) -> Dict:
+    def search(self, user_input: str, top_k: int = 10, min_signals: int = 1, max_descriptors: int = 12) -> Dict:
         all_matched = self.match_descriptors(user_input)
 
         high_confidence = [(d, s) for d, s in all_matched if s >= 0.6]
         if len(high_confidence) >= 2:
             selected = high_confidence[:max_descriptors]
+            # Fill remaining slots with lower-scored but still relevant descriptors
+            if len(selected) < max_descriptors:
+                lower = [(d, s) for d, s in all_matched if s < 0.6 and s >= MIN_SEMANTIC_SIMILARITY]
+                selected = selected + lower[:max_descriptors - len(selected)]
         else:
             selected = all_matched[:max_descriptors]
 

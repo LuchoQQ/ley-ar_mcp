@@ -75,23 +75,35 @@ def test_despido_no_registrado_con_intimacion_art8():
 
 
 def test_despido_no_registrado_sin_intimacion_advierte():
-    """No registrado sin intimacion -> monto 0 + accion requerida"""
+    """No registrado sin intimacion -> monto 0 + monto_potencial + accion requerida"""
     r = calcular_indemnizacion("2022-01-01", "2025-01-15", 800000, "sin_causa", False, False)
     multa = r["rubros_requiere_intimacion"]["multa_ley24013_art8"]
     assert multa["monto"] == 0
     assert "accion_requerida" in multa
+    # Monto potencial calculado con egreso como referencia: 25% x 36 meses x $800.000
+    assert multa["monto_potencial"] == 800000 * 36 * 0.25
+    # Art. 15 potencial = arts. 245 + 232 + 233 (duplica indemnizaciones por despido)
+    art15 = r["rubros_requiere_intimacion"]["duplicacion_ley24013_art15"]
+    assert art15["monto"] == 0
+    antiguedad = r["rubros_inmediatos"]["indemnizacion_antiguedad"]["monto"]
+    preaviso = r["rubros_inmediatos"]["preaviso"]["monto"]
+    integracion = r["rubros_inmediatos"]["integracion_mes"]["monto"]
+    assert abs(art15["monto_potencial"] - (antiguedad + preaviso + integracion)) < 1
 
 
 def test_art15_duplicacion_por_despido_represalia():
-    """Despido dentro de 2 anos de intimacion -> art. 15 duplica multas"""
+    """Despido dentro de 2 anos de intimacion -> art. 15 duplica indemnizaciones por despido (arts. 232+233+245)"""
     r = calcular_indemnizacion(
         "2022-01-01", "2025-01-15", 800000, "sin_causa", False, False,
         fecha_intimacion="2024-12-01",
     )
     assert "duplicacion_ley24013_art15" in r["rubros_requiere_intimacion"]
-    art8 = r["rubros_requiere_intimacion"]["multa_ley24013_art8"]["monto"]
+    antiguedad = r["rubros_inmediatos"]["indemnizacion_antiguedad"]["monto"]
+    preaviso = r["rubros_inmediatos"]["preaviso"]["monto"]
+    integracion = r["rubros_inmediatos"]["integracion_mes"]["monto"]
     art15 = r["rubros_requiere_intimacion"]["duplicacion_ley24013_art15"]["monto"]
-    assert art15 == art8
+    # Art. 15 = arts. 245 + 232 + 233 (duplica indemnizaciones por despido)
+    assert abs(art15 - (antiguedad + preaviso + integracion)) < 1
 
 
 def test_registro_parcial_art9():
@@ -131,7 +143,7 @@ def test_con_preaviso_otorgado():
 
 
 def test_total_es_suma_de_categorias():
-    """El total general debe ser la suma de las 3 categorias"""
+    """Cada subtotal debe ser la suma de sus rubros"""
     r = calcular_indemnizacion(
         "2022-01-01", "2025-01-15", 800000, "sin_causa", False, False,
         fecha_intimacion="2024-12-01",
@@ -142,7 +154,8 @@ def test_total_es_suma_de_categorias():
     assert abs(r["totales"]["inmediatos"] - suma_inm) < 1
     assert abs(r["totales"]["requiere_intimacion"] - suma_int) < 1
     assert abs(r["totales"]["apercibimiento"] - suma_ape) < 1
-    assert abs(r["totales"]["general"] - (suma_inm + suma_int + suma_ape)) < 1
+    # No debe haber total general (evita que el LLM sume categorias incompatibles)
+    assert "general" not in r["totales"]
 
 
 def test_periodo_prueba():
@@ -158,10 +171,90 @@ def test_advertencia_intimacion_pendiente():
 
 
 def test_preaviso_nota_cerca_umbral_5_anios():
-    """4 anios 10 meses -> 5 periodos art 245 pero preaviso 1 mes, con nota explicativa"""
+    """4 anios 10 meses -> 5 periodos art 245 pero preaviso 1 mes, con nota y escenario alternativo"""
     r = calcular_indemnizacion("2020-04-01", "2025-02-15", 1000000, "sin_causa", True, False)
     assert r["antiguedad"]["anos"] == 4
     assert r["antiguedad"]["periodos_indemnizatorios"] == 5
-    assert r["rubros_inmediatos"]["preaviso"]["monto"] == 1000000  # 1 mes, no 2
-    assert "nota" in r["rubros_inmediatos"]["preaviso"]
-    assert "art. 231" in r["rubros_inmediatos"]["preaviso"]["nota"].lower() or "231" in r["rubros_inmediatos"]["preaviso"]["nota"]
+    preaviso = r["rubros_inmediatos"]["preaviso"]
+    assert preaviso["monto"] == 1000000  # 1 mes, no 2
+    assert "nota" in preaviso
+    assert "231" in preaviso["nota"]
+    # Escenario alternativo con 2 meses
+    assert preaviso["monto_alternativo"] == 2000000
+    assert preaviso["diferencia"] == 1000000
+
+
+def test_art80_certificados_no_entregados():
+    """Certificados no entregados -> multa de 3 sueldos"""
+    r = calcular_indemnizacion(
+        "2022-01-01", "2025-01-15", 1000000, "sin_causa", True, False,
+        certificados_entregados=False,
+    )
+    assert "multa_art80_certificados" in r["rubros_inmediatos"]
+    assert r["rubros_inmediatos"]["multa_art80_certificados"]["monto"] == 3000000
+    assert "Art. 80" in r["rubros_inmediatos"]["multa_art80_certificados"]["fundamento"]
+
+
+def test_resumen_tiene_subtotal_formateado():
+    """El resumen incluye rubros pre-formateados y subtotal para copiar"""
+    r = calcular_indemnizacion("2022-01-01", "2025-01-15", 800000, "sin_causa", False, False)
+    assert "resumen" in r
+    assert len(r["resumen"]["rubros_reclamables"]) > 0
+    assert r["resumen"]["subtotal_reclamable"] == f"${r['totales']['inmediatos']:,.0f}"
+
+
+def test_documentos_no_registrado_sin_intimacion():
+    """No registrado sin intimacion -> 2 documentos: telegrama registro primero, carta despues"""
+    r = calcular_indemnizacion("2022-01-01", "2025-01-15", 800000, "sin_causa", False, False)
+    assert len(r["documentos"]) == 2
+    assert r["documentos"][0]["tipo"] == "telegrama_registro"
+    assert r["documentos"][0]["orden"] == 1
+    assert r["documentos"][1]["tipo"] == "carta_documento"
+    assert r["documentos"][1]["orden"] == 2
+    # El telegrama NO debe mencionar rubros
+    assert "rubros_a_incluir" not in r["documentos"][0] or len(r["documentos"][0].get("rubros_a_incluir", [])) == 0
+
+
+def test_documentos_registrado():
+    """Empleo registrado -> 1 solo documento: carta documento directa"""
+    r = calcular_indemnizacion("2022-01-01", "2025-01-15", 800000, "sin_causa", True, False)
+    assert len(r["documentos"]) == 1
+    assert r["documentos"][0]["tipo"] == "carta_documento"
+
+
+def test_documentos_no_registrado_con_intimacion():
+    """No registrado con intimacion ya enviada -> 1 carta documento"""
+    r = calcular_indemnizacion(
+        "2022-01-01", "2025-01-15", 800000, "sin_causa", False, False,
+        fecha_intimacion="2024-12-01",
+    )
+    assert len(r["documentos"]) == 1
+    assert r["documentos"][0]["tipo"] == "carta_documento"
+
+
+def test_resumen_potenciales_sin_intimacion():
+    """Sin intimacion -> resumen incluye montos potenciales con nota"""
+    r = calcular_indemnizacion("2022-01-01", "2025-01-15", 800000, "sin_causa", False, False)
+    assert "rubros_potenciales_requieren_intimacion" in r["resumen"]
+    assert "nota_potenciales" in r["resumen"]
+    assert "NO" in r["resumen"]["nota_potenciales"]
+
+
+def test_art80_certificados_entregados():
+    """Certificados entregados -> no hay multa"""
+    r = calcular_indemnizacion(
+        "2022-01-01", "2025-01-15", 1000000, "sin_causa", True, False,
+        certificados_entregados=True,
+    )
+    assert "multa_art80_certificados" not in r["rubros_inmediatos"]
+
+
+def test_art80_certificados_no_informado():
+    """Certificados no informados -> accion_requerida"""
+    r = calcular_indemnizacion(
+        "2022-01-01", "2025-01-15", 1000000, "sin_causa", True, False,
+        certificados_entregados=None,
+    )
+    assert "multa_art80_certificados" in r["rubros_inmediatos"]
+    assert r["rubros_inmediatos"]["multa_art80_certificados"]["monto"] == 0
+    assert "accion_requerida" in r["rubros_inmediatos"]["multa_art80_certificados"]

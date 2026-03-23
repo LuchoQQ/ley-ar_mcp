@@ -12,6 +12,7 @@ def buscar_articulos(
     tema: str,
     ley: str = None,
     max_resultados: int = 5,
+    mod_service=None,
 ) -> dict:
     """Busqueda hibrida de articulos de legislacion laboral por tema en lenguaje natural.
 
@@ -35,7 +36,7 @@ def buscar_articulos(
         art_data = store.get_by_id(art_info["id"])
         if not art_data:
             continue
-        articulos.append({
+        entry = {
             "ley": art_data["codigo_nombre"],
             "codigo": art_data["codigo"],
             "articulo": str(art_data["numero"]),
@@ -44,7 +45,13 @@ def buscar_articulos(
             "seccion": art_data["seccion"],
             "relevancia": art_info["weighted_score"],
             "descriptores": [d["descriptor"] for d in art_info["from_descriptors"]],
-        })
+        }
+        if mod_service:
+            art_id = art_info["id"]
+            ann = mod_service.annotate(art_id)
+            if ann:
+                entry["modificaciones"] = ann
+        articulos.append(entry)
 
     return {
         "articulos": articulos,

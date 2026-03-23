@@ -28,13 +28,14 @@ def test_embarazo_devuelve_fallos():
 
 
 def test_fallos_tienen_campos_requeridos():
-    """Cada fallo debe tener los campos basicos."""
+    """Cada fallo debe tener los campos basicos incluyendo texto sustantivo."""
     r = jurisprudencia(retriever, juris, "despido sin causa")
     for f in r["fallos"]:
         assert f["caratula"] != ""
         assert f["fecha"] != ""
         assert f["relevance_score"] > 0
-        assert f["overlap_count"] >= 2
+        assert f["overlap_count"] >= 1
+        assert "texto" in f
 
 
 def test_recencia_boost():

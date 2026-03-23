@@ -4,11 +4,6 @@ Valida que el sistema hibrido devuelva los articulos correctos
 para las consultas mas comunes en derecho laboral argentino.
 """
 
-import sys
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
-
 from ley_ar.services.hybrid_retriever import HybridRetriever
 from ley_ar.services.legislation_store import LegislationStore
 from ley_ar.tools.buscar_articulos import buscar_articulos

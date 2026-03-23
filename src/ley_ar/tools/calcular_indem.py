@@ -16,7 +16,7 @@ def _get_tope_cct(cct_id: str) -> dict | None:
     global _cct_cache
     if _cct_cache is None:
         if CCT_PATH.exists():
-            with open(CCT_PATH, "r") as f:
+            with open(CCT_PATH, "r", encoding="utf-8") as f:
                 data = json.load(f)
             _cct_cache = {k: v for k, v in data.items() if not k.startswith("_")}
         else:

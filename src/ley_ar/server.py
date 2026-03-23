@@ -1,9 +1,12 @@
+from __future__ import annotations
+
 from mcp.server.fastmcp import FastMCP
 
 from ley_ar.data_manager import ensure_data_ready
 from ley_ar.services.legislation_store import LegislationStore
 from ley_ar.services.hybrid_retriever import HybridRetriever
 from ley_ar.services.juris_search import JurisprudenciaSearch
+from ley_ar.services.modificaciones_service import ModificacionesService
 from ley_ar.tools.norma_vigente import norma_vigente as _norma_vigente
 from ley_ar.tools.calcular_indem import calcular_indemnizacion as _calcular_indemnizacion
 from ley_ar.tools.verificar_prescrip import verificar_prescripcion as _verificar_prescripcion
@@ -11,14 +14,24 @@ from ley_ar.tools.buscar_articulos import buscar_articulos as _buscar_articulos
 from ley_ar.tools.jurisprudencia import jurisprudencia as _jurisprudencia
 from ley_ar.tools.analizar_caso import analizar_caso as _analizar_caso
 from ley_ar.tools.generar_documento import generar_documento as _generar_documento
-from ley_ar.services.modificaciones_service import ModificacionesService
 
-ensure_data_ready()
 
-legislation_store = LegislationStore()
-hybrid_retriever = HybridRetriever()
-juris_search = JurisprudenciaSearch()
-mod_service = ModificacionesService()
+def _init_services():
+    """Initialize services lazily on first tool call, not at import time."""
+    global _services
+    if _services is not None:
+        return _services
+    ensure_data_ready()
+    _services = {
+        "store": LegislationStore(),
+        "retriever": HybridRetriever(),
+        "juris": JurisprudenciaSearch(),
+        "mods": ModificacionesService(),
+    }
+    return _services
+
+
+_services = None
 
 mcp = FastMCP(
     "ley-ar",
@@ -34,7 +47,8 @@ def norma_vigente(ley: str, articulo: str) -> dict:
         ley: Nombre o numero de la ley
         articulo: Numero del articulo
     """
-    return _norma_vigente(legislation_store, ley, articulo, mod_service=mod_service)
+    s = _init_services()
+    return _norma_vigente(s["store"], ley, articulo, mod_service=s["mods"])
 
 
 @mcp.tool()
@@ -49,7 +63,8 @@ def buscar_articulos(tema: str, ley: str = None, max_resultados: int = 5) -> dic
         ley: Filtro opcional por ley
         max_resultados: Cantidad maxima de articulos a devolver. Default: 5
     """
-    return _buscar_articulos(hybrid_retriever, legislation_store, tema, ley, max_resultados, mod_service=mod_service)
+    s = _init_services()
+    return _buscar_articulos(s["retriever"], s["store"], tema, ley, max_resultados, mod_service=s["mods"])
 
 
 @mcp.tool()
@@ -64,7 +79,8 @@ def jurisprudencia(caso: str, jurisdiccion: str = None, max_resultados: int = 3)
         jurisdiccion: Filtro opcional por provincia
         max_resultados: Cantidad maxima de fallos a devolver. Default: 3
     """
-    return _jurisprudencia(hybrid_retriever, juris_search, caso, jurisdiccion, max_resultados)
+    s = _init_services()
+    return _jurisprudencia(s["retriever"], s["juris"], caso, jurisdiccion, max_resultados)
 
 
 @mcp.tool()
@@ -98,10 +114,11 @@ def calcular_indemnizacion(
         remuneracion_registrada: Remuneracion en recibos si habia registro parcial. Omitir si no aplica.
         fecha_registro_falsa: Fecha de ingreso registrada si era distinta a la real (YYYY-MM-DD). Omitir si no aplica.
     """
+    s = _init_services()
     return _calcular_indemnizacion(
         fecha_ingreso, fecha_egreso, mejor_remuneracion, causa, registrado, preaviso_otorgado,
         fecha_intimacion, remuneracion_registrada, fecha_registro_falsa,
-        mod_service=mod_service,
+        mod_service=s["mods"],
         fecha_calculo=fecha_calculo,
         cct=cct,
     )
@@ -143,8 +160,9 @@ def analizar_caso(
         monto_intereses: Intereses calculados
         honorarios_pct: Porcentaje de honorarios (default 20%)
     """
+    s = _init_services()
     return _analizar_caso(
-        hybrid_retriever, juris_search, caso, jurisdiccion,
+        s["retriever"], s["juris"], caso, jurisdiccion,
         monto_inmediatos=monto_inmediatos,
         monto_intereses=monto_intereses,
         honorarios_pct=honorarios_pct,

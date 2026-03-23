@@ -66,7 +66,7 @@ def _stems(word: str) -> Set[str]:
 class HybridRetriever:
 
     def __init__(self):
-        with open(INDEX_PATH, "r") as f:
+        with open(INDEX_PATH, "r", encoding="utf-8") as f:
             self.index = json.load(f)
 
         # Keyword: vocabulario de sinonimos
@@ -89,7 +89,7 @@ class HybridRetriever:
         # Semantico: modelo + FAISS
         self.model = SentenceTransformer(MODEL_NAME)
         self.faiss_index = faiss.read_index(str(FAISS_PATH))
-        with open(MAPPINGS_PATH, "r") as f:
+        with open(MAPPINGS_PATH, "r", encoding="utf-8") as f:
             self.mappings = json.load(f)
 
     def _match_keywords(self, user_input: str) -> Dict[str, float]:

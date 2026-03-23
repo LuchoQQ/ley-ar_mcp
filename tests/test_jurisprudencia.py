@@ -3,11 +3,6 @@ Tests de jurisprudencia con casos laborales reales.
 Valida que devuelva fallos relevantes, recientes y de materia laboral.
 """
 
-import sys
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
-
 from ley_ar.services.hybrid_retriever import HybridRetriever
 from ley_ar.services.juris_search import JurisprudenciaSearch
 from ley_ar.tools.jurisprudencia import jurisprudencia

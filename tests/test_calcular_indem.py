@@ -1,8 +1,3 @@
-import sys
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
-
 from ley_ar.tools.calcular_indem import calcular_indemnizacion
 
 

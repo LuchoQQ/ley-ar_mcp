@@ -51,7 +51,7 @@ class JurisprudenciaSearch:
         return 0.3
 
     def _load(self, path: Path):
-        with open(path, "r") as f:
+        with open(path, "r", encoding="utf-8") as f:
             for i, line in enumerate(f):
                 if not line.strip():
                     continue

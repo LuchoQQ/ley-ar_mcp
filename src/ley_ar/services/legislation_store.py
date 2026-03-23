@@ -6,9 +6,10 @@ Mapea IDs del tipo "LCT_178" al texto completo del articulo.
 from __future__ import annotations
 
 import json
-import re
 from pathlib import Path
 from typing import Dict, List, Optional
+
+from ley_ar.utils import normalize_article_num
 
 DATA_DIR = Path(__file__).parent.parent / "data" / "legislacion"
 
@@ -53,14 +54,6 @@ _LAW_ALIASES = {
 }
 
 
-def _normalize_article_num(raw: str) -> int:
-    cleaned = re.sub(r'[°ºª\s]', '', raw)
-    try:
-        return int(cleaned)
-    except ValueError:
-        return 0
-
-
 class LegislationStore:
 
     def __init__(self, data_dir: str = None):
@@ -74,7 +67,7 @@ class LegislationStore:
             if not filepath.exists():
                 continue
 
-            with open(filepath, "r") as f:
+            with open(filepath, "r", encoding="utf-8") as f:
                 data = json.load(f)
 
             articles = data if isinstance(data, list) else data.get("articles", [])
@@ -82,7 +75,7 @@ class LegislationStore:
             for a in articles:
                 meta = a.get("metadata", {})
                 raw_num = meta.get("article", "")
-                num = _normalize_article_num(raw_num)
+                num = normalize_article_num(raw_num)
                 if num == 0:
                     continue
 
@@ -115,7 +108,7 @@ class LegislationStore:
     def get(self, ley: str, articulo: str) -> Optional[Dict]:
         """Busca un articulo por ley + numero."""
         code = self._resolve_law(ley)
-        num = _normalize_article_num(articulo)
+        num = normalize_article_num(articulo)
         art_id = f"{code}_{num}"
         return self.articles.get(art_id)
 

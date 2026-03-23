@@ -47,9 +47,11 @@ Cualquier cliente compatible con MCP puede usar ley-ar. El comando es `uvx ley-a
 |------|----------|------|
 | `buscar_articulos` | Busqueda hibrida (keyword + semantica) por tema en lenguaje natural | Busqueda |
 | `jurisprudencia` | Fallos laborales relevantes a un caso | Busqueda |
-| `calcular_indemnizacion` | Rubros indemnizatorios de un despido | Deterministica |
+| `analizar_caso` | Estadisticas de jurisprudencia: tasa de exito, tendencia temporal, costo-beneficio | Analisis |
+| `calcular_indemnizacion` | Rubros indemnizatorios de un despido con trazabilidad legal completa | Deterministica |
 | `verificar_prescripcion` | Verifica si una accion laboral esta prescripta | Deterministica |
 | `norma_vigente` | Texto exacto de un articulo por ley + numero | Lookup |
+| `generar_documento` | Genera telegramas, cartas documento y liquidaciones desde templates | Generacion |
 
 ### buscar_articulos
 
@@ -166,8 +168,8 @@ Ademas: indice de 955 descriptores SAIJ con 5,490 sinonimos, 57,349 fallos de ju
 
 ## Limitaciones
 
-- No calcula tope del CCT (art. 245). El output advierte.
-- No calcula intereses.
+- Tope del CCT (art. 245): soportado si se informa el convenio colectivo, pero no todos los CCT estan cargados.
+- Intereses: se calculan internamente (tasa activa BNA por semestre) pero no se exponen como tool independiente.
 - Jurisprudencia prioriza CABA y Buenos Aires.
 - Legislacion vigente al momento de la ultima actualizacion del paquete.
 
@@ -183,8 +185,6 @@ pip install -e .
 # Tests
 pytest tests/ -v
 ```
-
-Ver [ARCHITECTURE.md](ARCHITECTURE.md) para detalles tecnicos del sistema de busqueda, formulas de calculo y flujo de datos.
 
 ## Licencia
 

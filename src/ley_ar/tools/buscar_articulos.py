@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import List, Dict, Optional
-
 from ley_ar.services.hybrid_retriever import HybridRetriever
 from ley_ar.services.legislation_store import LegislationStore
 

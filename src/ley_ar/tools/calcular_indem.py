@@ -190,7 +190,7 @@ def calcular_indemnizacion(
         dias_vac_anual = 14
 
     # Art. 156: 1 dia de vacacion por cada 20 dias de trabajo efectivo
-    inicio_anio = date(egreso.year, 1, 1)
+    inicio_anio = max(ingreso, date(egreso.year, 1, 1))
     dias_trabajados_anio = (egreso - inicio_anio).days + 1  # conteo inclusivo
     dias_vac_proporcional = dias_trabajados_anio / 20
     # Tope: no puede exceder la proporcion del periodo anual
@@ -371,114 +371,14 @@ def calcular_indemnizacion(
     total_requiere_intimacion = sum(r["monto"] for r in rubros_requiere_intimacion.values())
     total_apercibimiento = sum(r["monto"] for r in rubros_apercibimiento.values())
 
-    # Advertencias
-    advertencias = []
+    # Datos factuales sobre el calculo
+    notas_calculo = []
     if not cct:
-        advertencias.append(
-            "No se aplico tope del CCT (art. 245 LCT) - informar convenio colectivo para calculo preciso"
-        )
+        notas_calculo.append("Tope CCT no aplicado: no se informo convenio colectivo")
     elif tope_info and not (rem > tope_info["tope_245"] * 3):
-        advertencias.append(
-            f"Tope CCT {cct} ({tope_info['nombre']}): remuneracion no excede el tope, no se aplica reduccion"
-        )
-    if causa == "con_causa":
-        advertencias.append(
-            "Despido con causa: si la causa no es valida, corresponden las indemnizaciones de despido sin causa"
-        )
-
-    # ── RESUMEN PRE-FORMATEADO (para que el LLM copie, no recalcule) ──
-
-    def _format_rubros(rubros: dict) -> list:
-        lineas = []
-        for key, rubro in rubros.items():
-            if rubro["monto"] > 0:
-                nombre = key.replace("_", " ").title()
-                lineas.append(f"- {nombre} ({rubro['fundamento']}): ${rubro['monto']:,.0f}")
-        return lineas
-
-    resumen = {
-        "rubros_reclamables": _format_rubros(rubros_inmediatos),
-        "subtotal_reclamable": f"${total_inmediatos:,.0f}",
-    }
-    if rubros_apercibimiento:
-        resumen["apercibimientos"] = _format_rubros(rubros_apercibimiento)
-        resumen["subtotal_apercibimiento"] = f"${total_apercibimiento:,.0f}"
-    if any(r.get("monto_potencial", 0) > 0 for r in rubros_requiere_intimacion.values()):
-        potenciales = []
-        for key, rubro in rubros_requiere_intimacion.items():
-            mp = rubro.get("monto_potencial", 0)
-            if mp > 0:
-                nombre = key.replace("_", " ").title()
-                potenciales.append(f"- {nombre} ({rubro['fundamento']}): ${mp:,.0f}")
-        resumen["rubros_potenciales_requieren_intimacion"] = potenciales
-        resumen["nota_potenciales"] = "Estos montos NO son exigibles todavia. Requieren intimacion previa (telegrama art. 11 Ley 24.013). No sumarlos al subtotal reclamable."
-
-    # ── SECUENCIA DE DOCUMENTOS (logica deterministica) ──
-    # Verificar si los arts. 11 y 15 de la Ley 24.013 estan derogados
-    arts_24013_derogados = False
-    if mod_service:
-        arts_24013_derogados = mod_service.fue_derogado("LdE_11") and mod_service.fue_derogado("LdE_15")
-
-    documentos = []
-    if not registrado and not intimacion and not arts_24013_derogados:
-        # Secuencia clasica pre-Ley 27.742: telegrama de registro primero
-        documentos.append({
-            "orden": 1,
-            "tipo": "telegrama_registro",
-            "descripcion": "Telegrama intimando registro (art. 11 Ley 24.013)",
-            "contenido": "SOLO intimacion de registro. NO mencionar despido, NO reclamar indemnizaciones, NO mencionar rubros. El unico objetivo es intimar al empleador a registrar la relacion laboral.",
-            "motivo": "Si se reclaman indemnizaciones en el mismo acto que se intima el registro, el empleador puede argumentar que la intimacion de registro fue instrumental y no genuina, debilitando el art. 15 Ley 24.013.",
-            "plazo_espera": "30 dias corridos desde recepcion",
-        })
-        documentos.append({
-            "orden": 2,
-            "tipo": "carta_documento",
-            "descripcion": "Carta documento reclamando indemnizacion y rubros",
-            "contenido": "Enviar DESPUES de los 30 dias del telegrama de registro. Incluir todos los rubros inmediatos.",
-            "rubros_a_incluir": list(rubros_inmediatos.keys()),
-            "subtotal": f"${total_inmediatos:,.0f}",
-            "apercibimientos_a_incluir": list(rubros_apercibimiento.keys()),
-        })
-        advertencias.append(
-            "SECUENCIA OBLIGATORIA: enviar telegrama de registro (documento 1) ANTES que la carta documento (documento 2). "
-            "Enviarlos juntos o en orden inverso debilita el reclamo del art. 15 Ley 24.013."
-        )
-    elif not registrado and not intimacion and arts_24013_derogados:
-        # Post-Ley 27.742: arts. 11 y 15 derogados, carta documento directa
-        documentos.append({
-            "orden": 1,
-            "tipo": "carta_documento",
-            "descripcion": "Carta documento reclamando indemnizacion y rubros",
-            "contenido": "Reclamar todos los rubros inmediatos. Arts. 11 y 15 Ley 24.013 derogados por Ley 27.742 — no se requiere telegrama de registro previo bajo la nueva normativa.",
-            "rubros_a_incluir": list(rubros_inmediatos.keys()),
-            "subtotal": f"${total_inmediatos:,.0f}",
-            "apercibimientos_a_incluir": list(rubros_apercibimiento.keys()),
-        })
-        advertencias.append(
-            "Arts. 11 y 15 Ley 24.013 derogados por Ley 27.742 (B.O. 8/7/2024). "
-            "Bajo la nueva normativa no se requiere telegrama de registro previo. "
-            "Sin embargo, para hechos anteriores a la derogacion, algunos tribunales pueden aplicar ultraactividad. "
-            "Evaluar con el abogado si conviene enviar igualmente el telegrama de registro como cautela."
-        )
-    elif not registrado and intimacion:
-        documentos.append({
-            "orden": 1,
-            "tipo": "carta_documento",
-            "descripcion": "Carta documento reclamando indemnizacion y rubros",
-            "contenido": "Telegrama de registro ya fue enviado. Reclamar todos los rubros.",
-            "rubros_a_incluir": list(rubros_inmediatos.keys()),
-            "subtotal": f"${total_inmediatos:,.0f}",
-            "apercibimientos_a_incluir": list(rubros_apercibimiento.keys()),
-        })
-    else:
-        documentos.append({
-            "orden": 1,
-            "tipo": "carta_documento",
-            "descripcion": "Carta documento reclamando indemnizacion y rubros",
-            "rubros_a_incluir": list(rubros_inmediatos.keys()),
-            "subtotal": f"${total_inmediatos:,.0f}",
-            "apercibimientos_a_incluir": list(rubros_apercibimiento.keys()),
-        })
+        notas_calculo.append(f"Tope CCT {cct} ({tope_info['nombre']}): remuneracion no excede el tope, no se aplica reduccion")
+    elif tope_info and rem > tope_info["tope_245"] * 3:
+        notas_calculo.append(f"Tope CCT {cct} aplicado: remuneracion reducida de ${rem:,.0f} a ${rem_245:,.0f}")
 
     # ── MODIFICACIONES NORMATIVAS ──
     # Adjuntar hechos de modificaciones a los articulos usados en el calculo
@@ -503,28 +403,102 @@ def calcular_indemnizacion(
     except ImportError:
         advertencias.append("Modulo de intereses no disponible")
 
+    # ── DEPENDENCIAS ENTRE RUBROS (grafo estructurado) ──
+    dependencias = {
+        "indemnizacion_antiguedad": {
+            "requiere": [],
+            "descripcion": "Exigible desde el momento del despido sin causa",
+        },
+        "preaviso": {
+            "requiere": [],
+            "descripcion": "Exigible desde el momento del despido sin preaviso",
+        },
+        "integracion_mes": {
+            "requiere": [],
+            "descripcion": "Exigible desde el momento del despido sin preaviso (si no fue el ultimo dia del mes)",
+        },
+        "sac_proporcional": {
+            "requiere": [],
+            "descripcion": "Exigible desde el momento del despido",
+        },
+        "vacaciones_proporcionales": {
+            "requiere": [],
+            "descripcion": "Exigible desde el momento del despido",
+        },
+        "sac_sobre_preaviso": {
+            "requiere": ["preaviso"],
+            "descripcion": "Accesorio al preaviso. Si preaviso = 0, este tambien = 0",
+        },
+    }
+
+    if not registrado:
+        dependencias["duplicacion_ley25323_art1"] = {
+            "requiere": ["indemnizacion_antiguedad"],
+            "descripcion": "Se duplica la indemnizacion por antiguedad. Exigible desde el despido.",
+        }
+        dependencias["multa_ley24013_art8"] = {
+            "requiere": ["telegrama_registro"],
+            "plazo": "30 dias corridos desde envio del telegrama",
+            "descripcion": "Requiere telegrama de intimacion a registrar (art. 11 Ley 24.013). Sin telegrama previo, no es exigible.",
+        }
+        dependencias["duplicacion_ley24013_art15"] = {
+            "requiere": ["multa_ley24013_art8"],
+            "condicion": "Despido dentro de los 2 anos posteriores a la intimacion de registro",
+            "descripcion": "Duplica arts. 232+233+245. Requiere que se haya intimado registro Y que el despido ocurra dentro de 2 anos.",
+        }
+        dependencias["sancion_art132bis"] = {
+            "requiere": ["intimacion_deposito_aportes"],
+            "plazo": "Se devenga mensualmente desde la intimacion hasta acreditacion de deposito",
+            "descripcion": "Sancion conminatoria. Requiere intimar al empleador a depositar aportes retenidos.",
+        }
+
+    if remuneracion_registrada is not None and remuneracion_registrada < rem:
+        dependencias["multa_ley24013_art9"] = {
+            "requiere": ["telegrama_registro"],
+            "plazo": "30 dias corridos desde envio del telegrama",
+            "descripcion": "Requiere telegrama intimando a registrar remuneracion real.",
+        }
+
+    if fecha_registro_falsa:
+        dependencias["multa_ley24013_art10"] = {
+            "requiere": ["telegrama_registro"],
+            "plazo": "30 dias corridos desde envio del telegrama",
+            "descripcion": "Requiere telegrama intimando a registrar fecha de ingreso real.",
+        }
+
+    dependencias["multa_ley25323_art2"] = {
+        "requiere": ["carta_documento_pago"],
+        "plazo": "Plazo razonable (jurisprudencia: 4 dias habiles) desde intimacion de pago",
+        "descripcion": "50% sobre arts. 232+233+245. Solo se devenga si el empleador no paga tras ser intimado. Incluir como APERCIBIMIENTO en la carta documento, no como monto adeudado.",
+    }
+
+    if certificados_entregados is False or certificados_entregados is None:
+        dependencias["multa_art80_certificados"] = {
+            "requiere": ["intimacion_certificados"],
+            "plazo": "30 dias HABILES desde intimacion (Dec. 146/01)",
+            "descripcion": "Intimar al empleador a entregar certificados art. 80 LCT. Si no entrega en 30 dias habiles, nace el derecho a la multa de 3 sueldos.",
+        }
+
     result = {
         "rubros_inmediatos": rubros_inmediatos,
         "rubros_requiere_intimacion": rubros_requiere_intimacion,
         "rubros_apercibimiento": rubros_apercibimiento,
+        "dependencias": dependencias,
         "totales": {
             "inmediatos": round(total_inmediatos, 2),
             "inmediatos_formateado": f"${total_inmediatos:,.0f}",
             "requiere_intimacion": round(total_requiere_intimacion, 2),
             "apercibimiento": round(total_apercibimiento, 2),
-            "nota": "Cada categoria tiene un estatus legal distinto. NO sumar categorias entre si. Los rubros_inmediatos son exigibles ahora. Los rubros_requiere_intimacion dependen de pasos previos. Los apercibimientos son condicionales.",
         },
         "antiguedad": {
             "anos": anos,
             "meses_restantes": meses_restantes,
             "periodos_indemnizatorios": periodos,
         },
-        "resumen": resumen,
-        "documentos": documentos,
-        "advertencias": advertencias,
+        "notas_calculo": notas_calculo,
     }
     if modificaciones_normativas:
         result["modificaciones_normativas"] = modificaciones_normativas
-    if intereses_info and intereses_info.get("monto_intereses", 0) > 0:
+    if intereses_info:
         result["intereses"] = intereses_info
     return result

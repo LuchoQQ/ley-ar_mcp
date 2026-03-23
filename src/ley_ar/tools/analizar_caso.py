@@ -14,7 +14,7 @@ def analizar_caso(
     monto_intereses: float = None,
     honorarios_pct: float = 20.0,
 ) -> dict:
-    """Analiza estadisticamente la jurisprudencia relevante a un caso.
+    """Estadisticas de jurisprudencia relevante a un caso.
 
     Args:
         caso: Descripcion del caso en lenguaje natural
@@ -40,9 +40,7 @@ def analizar_caso(
         stats["costo_beneficio"] = CaseAnalytics.costo_beneficio(
             monto_inmediatos=monto_inmediatos,
             monto_intereses=monto_intereses or 0,
-            tasa_exito=stats.get("tasa_exito_general"),
             honorarios_pct=honorarios_pct,
-            jurisdiccion=jurisdiccion,
         )
 
     return stats

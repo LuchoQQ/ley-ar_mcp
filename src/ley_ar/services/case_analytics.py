@@ -152,16 +152,29 @@ class CaseAnalytics:
             "por_jurisdiccion": stats_jurisdiccion,
             "tendencia_temporal": tendencia,
             "alertas": alertas,
-            "advertencia": "Estadisticas basadas en analisis automatico de textos judiciales. Los resultados son orientativos y no constituyen prediccion de resultado judicial.",
+            "metodologia": {
+                "clasificacion_outcomes": (
+                    "Los resultados de cada fallo se clasifican mediante patrones "
+                    "de texto (regex) sobre el sumario. Este metodo tiene limitaciones: "
+                    "fallos con resultados parciales o mixtos pueden clasificarse "
+                    "incorrectamente. La tasa de exito refleja la proporcion de fallos "
+                    "que nuestro clasificador automatico interpreto como favorables, "
+                    "NO la probabilidad real de ganar un caso similar."
+                ),
+                "muestra": (
+                    f"Sobre {len(all_fallos)} fallos encontrados, {total_con_outcome} "
+                    f"tuvieron un resultado clasificable ({indeterminado} no pudieron clasificarse). "
+                    "La muestra esta sesgada hacia CABA y Buenos Aires."
+                ),
+                "limitaciones": [
+                    "No es una prediccion de resultado judicial",
+                    "El clasificador de resultados es heuristico (basado en patrones de texto)",
+                    "Fallos con resultados mixtos o parciales pueden clasificarse incorrectamente",
+                    "La base de jurisprudencia tiene mayor cobertura en CABA y Buenos Aires",
+                    "Los fallos se ponderan por recencia (post-2020 pesan mas) y jerarquia del tribunal",
+                ],
+            },
         }
-
-        if tasa_exito is not None and total_con_outcome >= 5:
-            if tasa_exito >= 70:
-                result["evaluacion"] = f"Jurisprudencia predominantemente favorable ({tasa_exito}% en {total_con_outcome} casos analizados)"
-            elif tasa_exito >= 40:
-                result["evaluacion"] = f"Jurisprudencia dividida ({tasa_exito}% favorable en {total_con_outcome} casos)"
-            else:
-                result["evaluacion"] = f"Jurisprudencia predominantemente desfavorable ({tasa_exito}% favorable en {total_con_outcome} casos)"
 
         return result
 
@@ -169,61 +182,22 @@ class CaseAnalytics:
     def costo_beneficio(
         monto_inmediatos: float,
         monto_intereses: float = 0,
-        tasa_exito: float = None,
         honorarios_pct: float = 20.0,
-        jurisdiccion: str = None,
     ) -> dict:
-        """Calcula analisis costo-beneficio para el cliente."""
+        """Calcula costos estimados de litigar. Solo datos, sin recomendaciones."""
         monto_total = monto_inmediatos + monto_intereses
 
         honorarios = monto_total * (honorarios_pct / 100)
         tasa_justicia_pct = 3.0
         tasa_justicia = monto_total * (tasa_justicia_pct / 100)
-        gastos_pericias = 150000
-        costo_total = honorarios + tasa_justicia + gastos_pericias
 
-        neto_si_gana = monto_total - honorarios
-        neto_si_pierde = -costo_total + honorarios
-
-        tiempos = {
-            "CABA": "18-24 meses",
-            "Buenos Aires": "24-36 meses",
-            "default": "18-36 meses",
-        }
-        tiempo = tiempos.get(jurisdiccion, tiempos["default"])
-
-        result = {
+        return {
             "monto_reclamable": round(monto_total, 2),
             "costos_estimados": {
                 "honorarios": round(honorarios, 2),
                 "honorarios_pct": honorarios_pct,
                 "tasa_justicia": round(tasa_justicia, 2),
-                "gastos_pericias": gastos_pericias,
-                "total_costos": round(costo_total, 2),
+                "tasa_justicia_pct": tasa_justicia_pct,
             },
-            "neto_cliente_si_gana": round(neto_si_gana, 2),
-            "tiempo_estimado_juicio": tiempo,
-            "alternativa_seclo": {
-                "descripcion": "Conciliacion en SECLO (gratuita, sin tasa de justicia)",
-                "tiempo": "1-3 meses",
-                "descuento_tipico": "20-40% sobre monto total",
-            },
+            "neto_si_gana": round(monto_total - honorarios, 2),
         }
-
-        if tasa_exito is not None:
-            prob = tasa_exito / 100
-            valor_esperado = (neto_si_gana * prob) + (neto_si_pierde * (1 - prob))
-            result["valor_esperado"] = round(valor_esperado, 2)
-            punto_equilibrio = valor_esperado + costo_total * (1 - prob)
-            result["punto_equilibrio_settlement"] = round(max(punto_equilibrio, 0), 2)
-            result["recomendacion_settlement"] = (
-                f"Si el empleador ofrece mas de ${punto_equilibrio:,.0f}, "
-                f"conviene considerar aceptar (valor esperado del juicio: ${valor_esperado:,.0f}, "
-                f"basado en {tasa_exito}% de probabilidad de exito)"
-            )
-
-        result["advertencia"] = (
-            "Analisis orientativo. Los costos reales dependen del convenio de honorarios, "
-            "la jurisdiccion y la complejidad del caso. Consultar con el abogado."
-        )
-        return result

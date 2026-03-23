@@ -159,10 +159,12 @@ def test_periodo_prueba():
     assert r["rubros_inmediatos"]["preaviso"]["monto"] == 500000
 
 
-def test_advertencia_intimacion_pendiente():
-    """No registrado sin intimacion -> advertencia sobre telegrama"""
+def test_no_registrado_sin_intimacion_accion_requerida():
+    """No registrado sin intimacion -> multa art.8 monto 0 con accion_requerida"""
     r = calcular_indemnizacion("2022-01-01", "2025-01-15", 800000, "sin_causa", False, False)
-    assert any("telegrama" in a.lower() or "art. 11" in a.lower() for a in r["advertencias"])
+    multa = r["rubros_requiere_intimacion"]["multa_ley24013_art8"]
+    assert multa["monto"] == 0
+    assert "accion_requerida" in multa
 
 
 def test_preaviso_nota_cerca_umbral_5_anios():
@@ -190,49 +192,17 @@ def test_art80_certificados_no_entregados():
     assert "Art. 80" in r["rubros_inmediatos"]["multa_art80_certificados"]["fundamento"]
 
 
-def test_resumen_tiene_subtotal_formateado():
-    """El resumen incluye rubros pre-formateados y subtotal para copiar"""
+def test_totales_formateados():
+    """Totales incluyen inmediatos_formateado"""
     r = calcular_indemnizacion("2022-01-01", "2025-01-15", 800000, "sin_causa", False, False)
-    assert "resumen" in r
-    assert len(r["resumen"]["rubros_reclamables"]) > 0
-    assert r["resumen"]["subtotal_reclamable"] == f"${r['totales']['inmediatos']:,.0f}"
+    assert r["totales"]["inmediatos_formateado"] == f"${r['totales']['inmediatos']:,.0f}"
 
 
-def test_documentos_no_registrado_sin_intimacion():
-    """No registrado sin intimacion -> 2 documentos: telegrama registro primero, carta despues"""
+def test_no_contiene_resumen_ni_documentos():
+    """El output no debe contener resumen pre-formateado ni secuencia de documentos"""
     r = calcular_indemnizacion("2022-01-01", "2025-01-15", 800000, "sin_causa", False, False)
-    assert len(r["documentos"]) == 2
-    assert r["documentos"][0]["tipo"] == "telegrama_registro"
-    assert r["documentos"][0]["orden"] == 1
-    assert r["documentos"][1]["tipo"] == "carta_documento"
-    assert r["documentos"][1]["orden"] == 2
-    # El telegrama NO debe mencionar rubros
-    assert "rubros_a_incluir" not in r["documentos"][0] or len(r["documentos"][0].get("rubros_a_incluir", [])) == 0
-
-
-def test_documentos_registrado():
-    """Empleo registrado -> 1 solo documento: carta documento directa"""
-    r = calcular_indemnizacion("2022-01-01", "2025-01-15", 800000, "sin_causa", True, False)
-    assert len(r["documentos"]) == 1
-    assert r["documentos"][0]["tipo"] == "carta_documento"
-
-
-def test_documentos_no_registrado_con_intimacion():
-    """No registrado con intimacion ya enviada -> 1 carta documento"""
-    r = calcular_indemnizacion(
-        "2022-01-01", "2025-01-15", 800000, "sin_causa", False, False,
-        fecha_intimacion="2024-12-01",
-    )
-    assert len(r["documentos"]) == 1
-    assert r["documentos"][0]["tipo"] == "carta_documento"
-
-
-def test_resumen_potenciales_sin_intimacion():
-    """Sin intimacion -> resumen incluye montos potenciales con nota"""
-    r = calcular_indemnizacion("2022-01-01", "2025-01-15", 800000, "sin_causa", False, False)
-    assert "rubros_potenciales_requieren_intimacion" in r["resumen"]
-    assert "nota_potenciales" in r["resumen"]
-    assert "NO" in r["resumen"]["nota_potenciales"]
+    assert "resumen" not in r
+    assert "documentos" not in r
 
 
 def test_art80_certificados_entregados():

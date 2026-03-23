@@ -25,6 +25,10 @@ INDEX_PATH = DATA_DIR / "descriptores" / "descriptor_index.json"
 MIN_SEMANTIC_SIMILARITY = 0.52
 MIN_KEYWORD_SCORE = 0.4
 
+# Terminos cortos que son ambiguos en contexto legal (colisionan con abreviaturas comunes).
+# "art" es sinonimo de "aseguradora de riesgos del trabajo" pero matchea con "art." (articulo).
+BLACKLISTED_KEYWORD_TERMS = {"art"}
+
 
 # --- Stemming en espanol ---
 
@@ -102,6 +106,8 @@ class HybridRetriever:
         scores: Counter = Counter()
 
         for term in self.terms_sorted:
+            if term in BLACKLISTED_KEYWORD_TERMS:
+                continue
             pattern = r'\b' + re.escape(term) + r'\b'
             if re.search(pattern, text):
                 elegido = self.vocab[term]
@@ -114,8 +120,13 @@ class HybridRetriever:
                 term_words = set(re.findall(r'\w+', term))
                 if not term_words:
                     continue
+                # Skip blacklisted single-word terms
+                if len(term_words) == 1 and term_words & BLACKLISTED_KEYWORD_TERMS:
+                    continue
                 matched_words = 0
                 for tw in term_words:
+                    if tw in BLACKLISTED_KEYWORD_TERMS:
+                        continue
                     tw_stems = _stems(tw)
                     if tw_stems & input_all_stems:
                         matched_words += 1

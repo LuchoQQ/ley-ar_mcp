@@ -121,58 +121,66 @@ def generar_documento(
 
     if tipo in ("carta_documento", "liquidacion") and calculo:
         rubros = []
+        subtotal_inmediatos = 0.0
         for key, rubro in calculo.get("rubros_inmediatos", {}).items():
-            if rubro["monto"] > 0:
+            monto = rubro.get("monto", 0) or 0
+            if monto > 0:
                 rubros.append({
                     "nombre": key.replace("_", " ").title(),
-                    "fundamento": rubro["fundamento"],
-                    "calculo": rubro["calculo"],
-                    "monto": f"{rubro['monto']:,.0f}",
+                    "fundamento": rubro.get("fundamento", ""),
+                    "calculo": rubro.get("calculo", ""),
+                    "monto": f"{monto:,.0f}",
                 })
+                subtotal_inmediatos += monto
         context["rubros"] = rubros
         context["rubros_inmediatos"] = rubros
-        context["subtotal"] = calculo.get("totales", {}).get("inmediatos_formateado", "$0")
-        context["total_inmediatos"] = calculo.get("totales", {}).get("inmediatos_formateado", "$0")
+
+        totales = calculo.get("totales", {})
+        inmediatos_fmt = totales.get("inmediatos_formateado") or f"${totales.get('inmediatos', subtotal_inmediatos):,.0f}"
+        context["subtotal"] = inmediatos_fmt
+        context["total_inmediatos"] = inmediatos_fmt
 
         rubros_int = []
         for key, rubro in calculo.get("rubros_requiere_intimacion", {}).items():
+            monto = rubro.get("monto", 0) or 0
             rubros_int.append({
                 "nombre": key.replace("_", " ").title(),
-                "fundamento": rubro["fundamento"],
-                "calculo": rubro["calculo"],
-                "monto": f"{rubro['monto']:,.0f}",
+                "fundamento": rubro.get("fundamento", ""),
+                "calculo": rubro.get("calculo", ""),
+                "monto": f"{monto:,.0f}",
                 "monto_potencial": f"{rubro.get('monto_potencial', 0):,.0f}" if rubro.get("monto_potencial") else "",
             })
         context["rubros_intimacion"] = rubros_int if rubros_int else None
-        context["total_intimacion"] = f"${calculo.get('totales', {}).get('requiere_intimacion', 0):,.0f}"
+        context["total_intimacion"] = f"${totales.get('requiere_intimacion', 0):,.0f}"
 
         apercs = []
         for key, rubro in calculo.get("rubros_apercibimiento", {}).items():
-            if rubro["monto"] > 0:
+            monto = rubro.get("monto", 0) or 0
+            if monto > 0:
                 apercs.append({
                     "nombre": key.replace("_", " ").title(),
-                    "fundamento": rubro["fundamento"],
-                    "calculo": rubro["calculo"],
-                    "monto": f"{rubro['monto']:,.0f}",
+                    "fundamento": rubro.get("fundamento", ""),
+                    "calculo": rubro.get("calculo", ""),
+                    "monto": f"{monto:,.0f}",
                 })
         context["apercibimientos"] = apercs if apercs else None
         context["rubros_apercibimiento"] = apercs if apercs else None
-        context["total_apercibimiento"] = f"${calculo.get('totales', {}).get('apercibimiento', 0):,.0f}"
+        context["total_apercibimiento"] = f"${totales.get('apercibimiento', 0):,.0f}"
 
         intereses = calculo.get("intereses")
         if intereses and intereses.get("monto_intereses", 0) > 0:
             context["tiene_intereses"] = True
             context["intereses"] = {
-                "monto_base": f"{intereses['monto_base']:,.0f}",
-                "monto_intereses": f"{intereses['monto_intereses']:,.0f}",
-                "monto_con_intereses": f"{intereses['monto_con_intereses']:,.0f}",
-                "fecha_desde": intereses["fecha_desde"],
-                "fecha_hasta": intereses["fecha_hasta"],
-                "dias_totales": str(intereses["dias_totales"]),
+                "monto_base": f"{intereses.get('monto_base', 0):,.0f}",
+                "monto_intereses": f"{intereses.get('monto_intereses', 0):,.0f}",
+                "monto_con_intereses": f"{intereses.get('monto_con_intereses', 0):,.0f}",
+                "fecha_desde": intereses.get("fecha_desde", ""),
+                "fecha_hasta": intereses.get("fecha_hasta", ""),
+                "dias_totales": str(intereses.get("dias_totales", 0)),
             }
-            context["monto_intereses"] = f"{intereses['monto_intereses']:,.0f}"
-            context["total_con_intereses"] = f"{intereses['monto_con_intereses']:,.0f}"
-            context["fecha_calculo"] = intereses["fecha_hasta"]
+            context["monto_intereses"] = f"{intereses.get('monto_intereses', 0):,.0f}"
+            context["total_con_intereses"] = f"{intereses.get('monto_con_intereses', 0):,.0f}"
+            context["fecha_calculo"] = intereses.get("fecha_hasta", "")
         else:
             context["tiene_intereses"] = False
 

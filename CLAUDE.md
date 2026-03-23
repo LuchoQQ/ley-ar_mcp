@@ -2,7 +2,7 @@
 
 ## Que es este proyecto
 
-MCP server de legislacion laboral argentina. Expone 7 tools que cualquier LLM compatible con Model Context Protocol puede usar para buscar articulos, calcular indemnizaciones, consultar jurisprudencia, analizar casos estadisticamente, verificar prescripciones y generar documentos legales.
+MCP server de legislacion laboral argentina. Expone 12 tools que cualquier LLM compatible con Model Context Protocol puede usar para buscar articulos, calcular indemnizaciones y liquidaciones, consultar jurisprudencia y convenios colectivos, analizar casos estadisticamente, verificar prescripciones, calcular intereses y generar documentos legales.
 
 Publicado en PyPI como `ley-ar`. Se instala con `uvx ley-ar` o `pip install ley-ar`.
 
@@ -35,7 +35,11 @@ src/ley_ar/
 │   ├── norma_vigente.py
 │   ├── buscar_articulos.py
 │   ├── jurisprudencia.py
+│   ├── obtener_fallo.py
 │   ├── calcular_indem.py
+│   ├── liquidacion_final.py
+│   ├── calcular_intereses.py
+│   ├── consultar_cct.py
 │   ├── verificar_prescrip.py
 │   ├── analizar_caso.py
 │   └── generar_documento.py
@@ -179,8 +183,7 @@ python3 benchmark/compare.py benchmark/snapshots/before.json benchmark/snapshots
 
 ## Limitaciones conocidas
 
-- **Tope CCT**: art. 245 LCT tiene tope por convenio colectivo. El codigo carga datos de CCT pero no todos los convenios estan cubiertos.
-- **Intereses**: el service `intereses.py` existe pero ninguna tool lo expone directamente.
+- **Tope CCT**: art. 245 LCT tiene tope por convenio colectivo. Consultable via `consultar_cct`, pero no todos los convenios estan cargados.
 - **Cobertura geografica**: jurisprudencia prioriza CABA y Buenos Aires.
 - **Busqueda por numero de articulo**: los descriptores SAIJ son tematicos. Buscar "art. 245" no funciona bien; para eso usar `norma_vigente`.
 - **Datos estaticos**: la legislacion se actualiza manualmente por release.

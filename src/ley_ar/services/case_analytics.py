@@ -6,7 +6,7 @@ deteccion de doctrina contradictoria, evolucion temporal.
 from __future__ import annotations
 
 from collections import defaultdict
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Tuple
 
 from ley_ar.services.outcome_extractor import extract_outcome
 from ley_ar.services.juris_search import JurisprudenciaSearch
@@ -42,7 +42,7 @@ class CaseAnalytics:
         parcial = 0
         indeterminado = 0
         por_jurisdiccion = defaultdict(lambda: {"favorable": 0, "desfavorable": 0, "parcial": 0, "total": 0})
-        por_periodo = defaultdict(lambda: {"favorable": 0, "desfavorable": 0, "total": 0})
+        por_periodo = defaultdict(lambda: {"favorable": 0, "desfavorable": 0, "parcial": 0, "total": 0})
         alertas = []
 
         for fallo in all_fallos:
@@ -59,7 +59,7 @@ class CaseAnalytics:
                     por_jurisdiccion[prov]["desfavorable"] += 1
                 elif cat == "parcial":
                     parcial += 1
-                    por_jurisdiccion[prov]["favorable"] += 1
+                    por_jurisdiccion[prov]["parcial"] += 1
                 elif cat == "settlement":
                     pass
                 else:
@@ -84,10 +84,12 @@ class CaseAnalytics:
 
                     if outcome:
                         cat = outcome["outcome"]
-                        if cat in ("favorable", "revocacion", "parcial"):
+                        if cat in ("favorable", "revocacion"):
                             por_periodo[periodo]["favorable"] += 1
                         elif cat == "desfavorable":
                             por_periodo[periodo]["desfavorable"] += 1
+                        elif cat == "parcial":
+                            por_periodo[periodo]["parcial"] += 1
                     por_periodo[periodo]["total"] += 1
                 except ValueError:
                     pass

@@ -26,8 +26,26 @@ def liquidacion_final(
             "fin_contrato_plazo_fijo", "fallecimiento". Default: "renuncia"
         dias_vacaciones_gozadas: Dias de vacaciones ya gozadas en el anio. Default: 0
     """
-    ingreso = date.fromisoformat(fecha_ingreso)
-    egreso = date.fromisoformat(fecha_egreso)
+    _MOTIVOS_VALIDOS = ("renuncia", "jubilacion", "mutuo_acuerdo", "fin_contrato_plazo_fijo", "fallecimiento")
+    if motivo not in _MOTIVOS_VALIDOS:
+        return {"error": f"Motivo no valido: '{motivo}'. Valores validos: {list(_MOTIVOS_VALIDOS)}"}
+
+    try:
+        ingreso = date.fromisoformat(fecha_ingreso)
+    except (ValueError, TypeError):
+        return {"error": f"fecha_ingreso invalida: '{fecha_ingreso}'. Formato esperado: YYYY-MM-DD"}
+
+    try:
+        egreso = date.fromisoformat(fecha_egreso)
+    except (ValueError, TypeError):
+        return {"error": f"fecha_egreso invalida: '{fecha_egreso}'. Formato esperado: YYYY-MM-DD"}
+
+    if egreso <= ingreso:
+        return {"error": "fecha_egreso debe ser posterior a fecha_ingreso"}
+
+    if remuneracion <= 0:
+        return {"error": "remuneracion debe ser mayor a 0"}
+
     rem = remuneracion
 
     delta = relativedelta(egreso, ingreso)
@@ -53,7 +71,8 @@ def liquidacion_final(
         inicio_semestre = date(egreso.year, 1, 1)
     else:
         inicio_semestre = date(egreso.year, 7, 1)
-    dias_semestre = (egreso - inicio_semestre).days + 1
+    inicio_computo_sac = max(ingreso, inicio_semestre)
+    dias_semestre = (egreso - inicio_computo_sac).days + 1
     sac_prop = (rem / 2) * (dias_semestre / 180)
 
     rubros["sac_proporcional"] = {

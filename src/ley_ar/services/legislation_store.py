@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 from ley_ar.utils import normalize_article_num
 
@@ -105,14 +105,14 @@ class LegislationStore:
             return _LAW_ALIASES[no_dots]
         return ley.strip().upper()
 
-    def get(self, ley: str, articulo: str) -> Optional[Dict]:
+    def get(self, ley: str, articulo: str) -> Dict | None:
         """Busca un articulo por ley + numero."""
         code = self._resolve_law(ley)
         num = normalize_article_num(articulo)
         art_id = f"{code}_{num}"
         return self.articles.get(art_id)
 
-    def get_by_id(self, art_id: str) -> Optional[Dict]:
+    def get_by_id(self, art_id: str) -> Dict | None:
         """Busca un articulo por ID directo (ej: 'LCT_245')."""
         return self.articles.get(art_id)
 

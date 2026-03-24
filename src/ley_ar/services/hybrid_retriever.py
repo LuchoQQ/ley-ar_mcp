@@ -151,7 +151,7 @@ class HybridRetriever:
 
         descriptor_scores: Dict[str, float] = {}
         for score, idx in zip(scores_arr[0], indices[0]):
-            if idx == -1 or score < MIN_SEMANTIC_SIMILARITY:
+            if idx == -1 or idx >= len(self.mappings) or score < MIN_SEMANTIC_SIMILARITY:
                 continue
             elegido = self.mappings[idx]["elegido"]
             descriptor_scores[elegido] = max(descriptor_scores.get(elegido, 0), float(score))

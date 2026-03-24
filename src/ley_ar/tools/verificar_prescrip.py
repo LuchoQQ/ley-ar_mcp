@@ -107,8 +107,15 @@ def verificar_prescripcion(
             "error": f"Tipo de reclamo no reconocido: {tipo_reclamo}. Valores validos: {list(_PLAZOS.keys())}"
         }
 
-    hecho = date.fromisoformat(fecha_hecho)
-    consulta = date.fromisoformat(fecha_consulta) if fecha_consulta else date.today()
+    try:
+        hecho = date.fromisoformat(fecha_hecho)
+    except (ValueError, TypeError):
+        return {"error": f"fecha_hecho invalida: '{fecha_hecho}'. Formato esperado: YYYY-MM-DD"}
+
+    try:
+        consulta = date.fromisoformat(fecha_consulta) if fecha_consulta else date.today()
+    except (ValueError, TypeError):
+        return {"error": f"fecha_consulta invalida: '{fecha_consulta}'. Formato esperado: YYYY-MM-DD"}
 
     plazo = _PLAZOS[tipo_reclamo]
     fecha_limite = hecho + relativedelta(years=plazo["anos"])

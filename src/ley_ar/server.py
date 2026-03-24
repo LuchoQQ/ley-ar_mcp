@@ -130,6 +130,7 @@ def calcular_indemnizacion(
     fecha_intimacion: str = None,
     remuneracion_registrada: float = None,
     fecha_registro_falsa: str = None,
+    certificados_entregados: bool = None,
     cct: str = None,
     fecha_calculo: str = None,
 ) -> dict:
@@ -149,11 +150,13 @@ def calcular_indemnizacion(
         fecha_intimacion: Fecha del telegrama intimando registro (YYYY-MM-DD). Omitir si no se envio.
         remuneracion_registrada: Remuneracion en recibos si habia registro parcial. Omitir si no aplica.
         fecha_registro_falsa: Fecha de ingreso registrada si era distinta a la real (YYYY-MM-DD). Omitir si no aplica.
+        certificados_entregados: Si el empleador entrego certificados art. 80 LCT. True=entregados, False=no entregados (genera multa), omitir si no se sabe.
     """
     s = _init_services()
     return _calcular_indemnizacion(
         fecha_ingreso, fecha_egreso, mejor_remuneracion, causa, registrado, preaviso_otorgado,
         fecha_intimacion, remuneracion_registrada, fecha_registro_falsa,
+        certificados_entregados=certificados_entregados,
         mod_service=s["mods"],
         fecha_calculo=fecha_calculo,
         cct=cct,

@@ -2,12 +2,12 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 from ley_ar.services.legislation_store import LegislationStore
 
 _SITUACIONES_PATH = Path(__file__).parent.parent / "data" / "situaciones_legales.json"
-_situaciones_cache: Optional[Dict] = None
+_situaciones_cache: Dict | None = None
 
 
 def _load_situaciones() -> Dict:

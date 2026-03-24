@@ -23,6 +23,13 @@ dependencies = [
     "sentence-transformers>=2.0.0",
 ]
 
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "mypy>=1.0",
+    "ruff>=0.4",
+]
+
 [project.urls]
 Homepage = "https://github.com/LuchoQQ/ley-ar_mcp"
 Repository = "https://github.com/LuchoQQ/ley-ar_mcp"
@@ -40,8 +47,24 @@ packages = ["src/ley_ar"]
 [tool.hatch.build.targets.wheel.force-include]
 "src/ley_ar/data/legislacion" = "ley_ar/data/legislacion"
 "src/ley_ar/data/descriptores" = "ley_ar/data/descriptores"
-"src/ley_ar/services/hybrid_retriever.py" = "ley_ar/services/hybrid_retriever.py"
 
 [tool.hatch.build.targets.sdist]
 include = ["src/ley_ar"]
-exclude = ["src/ley_ar/data"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+check_untyped_defs = true
+
+[tool.ruff]
+target-version = "py310"
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W"]
